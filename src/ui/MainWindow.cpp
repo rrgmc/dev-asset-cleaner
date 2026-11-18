@@ -7,6 +7,8 @@
 #include "FolderListView.h"
 #include "FolderModel.h"
 #include "Format.h"
+#include "GroupListView.h"
+#include "GroupModel.h"
 #include "Icons.h"
 #include "ItemsDialog.h"
 #include "LoginItem.h"
@@ -32,6 +34,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
+#include <QSplitter>
 #include <QStatusBar>
 #include <QTimer>
 #include <QToolBar>
@@ -64,12 +67,14 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     , m_monitor(monitor)
     , m_model(new FolderModel(store, monitor, this))
     , m_list(new FolderListView(m_model, this))
+    , m_groupModel(new GroupModel(store, monitor, this))
+    , m_groups(new GroupListView(m_groupModel, this))
     , m_filter(new QLineEdit(this))
     , m_summary(new QLabel(this))
 {
     setWindowTitle(AppInfo::displayName());
     setWindowIcon(Icons::appIcon());
-    resize(760, 560);
+    resize(900, 560);
 
     m_filter->setPlaceholderText(
         tr("Filter by name or path (%1)")
@@ -91,12 +96,23 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
         for (const QString &p : paths)
             addFolderPath(p);
     });
+    connect(m_groups, &GroupListView::selectionChangedIds, this, &MainWindow::onGroupsSelected);
+    connect(m_groups, &GroupListView::groupContextMenu, this, &MainWindow::showGroupContextMenu);
+    connect(m_groups, &GroupListView::deleteRequested, this, &MainWindow::removeGroups);
+    connect(m_groups, &GroupListView::foldersDropped, this, &MainWindow::moveFoldersToGroup);
+    connect(m_groups, &GroupListView::filesDropped, this,
+            [this](const QStringList &paths, const QUuid &groupId) {
+                for (const QString &p : paths)
+                    addFolderPath(p, {}, {}, groupId);
+            });
     connect(m_list, &FolderListView::typed, this, [this](const QString &text) {
         m_filter->setFocus(Qt::ShortcutFocusReason);
         m_filter->setText(m_filter->text() + text);
     });
 
     connect(m_store, &Store::changed, this, &MainWindow::updateFolderActions);
+    connect(m_store, &Store::changed, this, &MainWindow::updateGroupActions);
+    connect(m_store, &Store::changed, this, &MainWindow::updateSummary);
     connect(m_store, &Store::saveFailed, this, [this](const QString &error) {
         showMessage(tr("Could not save %1: %2")
                         .arg(QDir::toNativeSeparators(m_store->filePath()), error),
@@ -111,27 +127,47 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
                              tr("%1 was not cleaned. %2").arg(f ? f->name : QString(), reason));
     });
 
-    auto *central = new QWidget(this);
-    auto *layout = new QVBoxLayout(central);
+    // Groups on the left, the selected groups' folders on the right.
+    auto *right = new QWidget(this);
+    auto *layout = new QVBoxLayout(right);
 #ifdef Q_OS_MACOS
     // The filter sits in the toolbar, as search fields do in Mac windows.
-    layout->setContentsMargins(12, 10, 12, 12);
+    layout->setContentsMargins(0, 10, 12, 12);
 #else
-    layout->setContentsMargins(8, 8, 8, 0);
+    layout->setContentsMargins(0, 8, 8, 0);
     layout->addWidget(m_filter);
 #endif
     layout->setSpacing(6);
     layout->addWidget(m_list, 1);
-    setCentralWidget(central);
+
+    auto *left = new QWidget(this);
+    auto *leftLayout = new QVBoxLayout(left);
+#ifdef Q_OS_MACOS
+    leftLayout->setContentsMargins(12, 10, 0, 12);
+#else
+    leftLayout->setContentsMargins(8, 8, 0, 0);
+#endif
+    leftLayout->addWidget(m_groups);
+    m_groups->setMinimumWidth(120);
+
+    m_splitter = new QSplitter(Qt::Horizontal, this);
+    m_splitter->setChildrenCollapsible(false);
+    m_splitter->addWidget(left);
+    m_splitter->addWidget(right);
+    m_splitter->setStretchFactor(1, 1);
+    m_splitter->setSizes({200, 700});
+    setCentralWidget(m_splitter);
     statusBar()->addPermanentWidget(m_summary);
 
     createActions();
     createTray();
-    updateFolderActions();
-    updateSummary();
+    if (m_groupModel->rowCount() > 0)
+        m_groups->selectId(m_groupModel->idAt(0));
+    onGroupsSelected();
 
     QSettings settings;
     restoreGeometry(settings.value(QStringLiteral("window/geometry")).toByteArray());
+    m_splitter->restoreState(settings.value(QStringLiteral("window/splitter")).toByteArray());
 }
 
 MainWindow::~MainWindow()
@@ -147,7 +183,8 @@ void MainWindow::createActions()
     QAction *detect = file->addAction(tr("&Detect types in a folder…"), this,
                                       [this] { detectTypes(); });
     detect->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_D));
-    file->addAction(tr("Add &system folders…"), this, &MainWindow::addSystemFolders);
+    QAction *system =
+        file->addAction(tr("Add &system folders…"), this, &MainWindow::addSystemFolders);
     QMenu *addKnown = file->addMenu(tr("Add a &tool cache"));
     connect(addKnown, &QMenu::aboutToShow, this, [this, addKnown] {
         addKnown->clear();
@@ -158,6 +195,7 @@ void MainWindow::createActions()
         m_filter->selectAll();
     });
     find->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_F));
+    m_addActions << add << detect << system << addKnown->menuAction();
     file->addSeparator();
     QAction *hide = file->addAction(tr("&Hide window"), this, &MainWindow::hideWindow);
     hide->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_W));
@@ -180,6 +218,12 @@ void MainWindow::createActions()
     QAction *copy = folder->addAction(tr("Copy &path"), this, [this] { copyPath(currentId()); });
     copy->setShortcut(QKeySequence(QKeySequence::Copy));
     folder->addSeparator();
+    m_moveMenu = folder->addMenu(tr("Move to &group"));
+    connect(m_moveMenu, &QMenu::aboutToShow, this, [this] {
+        m_moveMenu->clear();
+        fillMoveMenu(m_moveMenu, currentId());
+    });
+    folder->addSeparator();
     QAction *edit = folder->addAction(tr("&Edit…"), this, [this] { editFolder(currentId()); });
     edit->setShortcut(QKeySequence(Qt::Key_F2));
     QAction *remove = folder->addAction(tr("Re&move…"), this, &MainWindow::removeFolder);
@@ -196,13 +240,33 @@ void MainWindow::createActions()
         m_list->selectId(id);
     });
     down->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Down));
-    m_folderActions << rescan << items << open << copy << edit << remove << up << down;
+    m_folderActions << rescan << items << open << copy << m_moveMenu->menuAction() << edit << remove
+                    << up << down;
+
+    QMenu *groupMenu = menuBar()->addMenu(tr("&Group"));
+    QAction *newGroup = groupMenu->addAction(tr("&New group"), this, &MainWindow::addGroup);
+    newGroup->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N));
+    QAction *renameGroup =
+        groupMenu->addAction(tr("&Rename"), this, [this] { m_groups->renameCurrent(); });
+    QAction *deleteGroup = groupMenu->addAction(tr("&Delete…"), this, &MainWindow::removeGroups);
+    groupMenu->addSeparator();
+    m_cleanAllAction = groupMenu->addAction(tr("&Clean the selected groups…"), this,
+                                            [this] { cleanAll(false); });
+    m_cleanAllAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
+    QAction *rescanAll = groupMenu->addAction(tr("Re&scan the selected groups"), this,
+                                              [this] { m_monitor->rescanGroups(selectedGroups()); });
+    rescanAll->setShortcuts({QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R), QKeySequence(Qt::Key_F5)});
+    groupMenu->addSeparator();
+    QAction *groupUp = groupMenu->addAction(tr("Move &up"), this, [this] { moveGroup(-1); });
+    groupUp->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Up));
+    QAction *groupDown = groupMenu->addAction(tr("Move do&wn"), this, [this] { moveGroup(1); });
+    groupDown->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Down));
+    m_groupActions << renameGroup << deleteGroup << rescanAll << groupUp << groupDown;
 
     QMenu *tools = menuBar()->addMenu(tr("&Tools"));
-    m_cleanAllAction = tools->addAction(tr("Clean &all…"), this, &MainWindow::cleanAll);
-    m_cleanAllAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
-    QAction *rescanAll = tools->addAction(tr("Rescan a&ll"), m_monitor, &Monitor::rescanAll);
-    rescanAll->setShortcuts({QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R), QKeySequence(Qt::Key_F5)});
+    m_cleanEverythingAction =
+        tools->addAction(tr("Clean &everything…"), this, [this] { cleanAll(true); });
+    tools->addAction(tr("Rescan e&verything"), m_monitor, &Monitor::rescanAll);
     tools->addSeparator();
     QAction *types = tools->addAction(tr("Cleaner &types…"), this, &MainWindow::editTypes);
     QAction *settings = tools->addAction(tr("&Settings…"), this, &MainWindow::editSettings);
@@ -251,6 +315,8 @@ void MainWindow::createActions()
             menu->addAction(tr("System folders…"), this, &MainWindow::addSystemFolders);
             menu->addSeparator();
             fillAddMenu(menu);
+            menu->addSeparator();
+            menu->addAction(tr("Group"), this, &MainWindow::addGroup);
         });
         addButtonWidget->setMenu(menu);
         addButtonWidget->setPopupMode(QToolButton::MenuButtonPopup);
@@ -260,7 +326,7 @@ void MainWindow::createActions()
     toolbar->addSeparator();
     addButton(rescan, tr("Rescan"));
     addButton(m_cleanAction, tr("Clean"));
-    addButton(m_cleanAllAction, tr("Clean all"));
+    addButton(m_cleanAllAction, tr("Clean the selected groups"));
     toolbar->addSeparator();
     addButton(types, tr("Cleaner types"));
     addButton(settings, tr("Settings"));
@@ -340,13 +406,24 @@ void MainWindow::updateSummary()
         free.append(tr("%1%2 free on %3")
                         .arg(v.low ? warningMark() : QString(), Format::bytes(v.freeBytes), v.name));
     }
-    QString text = tr("Folders: %1, %2 to clean")
-                       .arg(Format::bytes(m_monitor->totalBytes()),
-                            Format::bytes(m_monitor->cleanableBytes()));
+    const QList<QUuid> groups = selectedGroups();
+    const qint64 groupCleanable = m_monitor->groupCleanableBytes(groups);
+    QString text;
+    if (m_store->groups().size() > 1 && !groups.isEmpty()) {
+        text = tr("Selected: %1, %2 to clean   ·   All: %3, %4 to clean")
+                   .arg(Format::bytes(m_monitor->groupTotalBytes(groups)),
+                        Format::bytes(groupCleanable), Format::bytes(m_monitor->totalBytes()),
+                        Format::bytes(m_monitor->cleanableBytes()));
+    } else {
+        text = tr("Folders: %1, %2 to clean")
+                   .arg(Format::bytes(m_monitor->totalBytes()),
+                        Format::bytes(m_monitor->cleanableBytes()));
+    }
     if (!free.isEmpty())
         text += QStringLiteral("   ·   ") + free.join(QStringLiteral(", "));
     m_summary->setText(text);
-    m_cleanAllAction->setEnabled(m_monitor->cleanableBytes() > 0);
+    m_cleanAllAction->setEnabled(groupCleanable > 0);
+    m_cleanEverythingAction->setEnabled(m_monitor->cleanableBytes() > 0);
 
     // The tray menu and icon follow, at most once per event loop turn.
     if (!m_trayUpdatePending) {
@@ -364,9 +441,31 @@ void MainWindow::updateTray()
         return;
     const Warnings warnings = m_monitor->warnings();
 
-    // The menu: each folder, each disk, then the commands.
+    // The menu: each group's folders, each disk, then the commands. With one group the folders
+    // are listed directly; with several, each group is a submenu.
     m_trayMenu->clear();
-    for (const Folder &f : m_store->folders()) {
+    const bool submenus = m_store->groups().size() > 1;
+    QHash<QUuid, QMenu *> groupMenus;
+    for (const Group &g : m_store->groups()) {
+        if (!submenus)
+            break;
+        const bool large = std::any_of(warnings.largeFolders.cbegin(), warnings.largeFolders.cend(),
+                                       [this, &g](const QUuid &id) {
+                                           const Folder *f = m_store->folder(id);
+                                           return f && f->groupId == g.id;
+                                       });
+        QMenu *menu = m_trayMenu->addMenu(
+            QStringLiteral("%1%2: %3").arg(
+                large ? warningMark() : QString(), g.name,
+                tr("%1, %2 to clean")
+                    .arg(Format::bytes(m_monitor->groupTotalBytes({g.id})),
+                         Format::bytes(m_monitor->groupCleanableBytes({g.id})))));
+        groupMenus.insert(g.id, menu);
+    }
+    QList<QUuid> allGroups;
+    for (const Group &g : m_store->groups())
+        allGroups.append(g.id);
+    for (const Folder &f : m_store->foldersIn(allGroups)) {
         const ScanResult r = m_monitor->result(f.id);
         const bool large = warnings.largeFolders.contains(f.id);
         QString detail;
@@ -388,15 +487,19 @@ void MainWindow::updateTray()
             break;
         }
         const QUuid id = f.id;
-        m_trayMenu->addAction(
+        QMenu *menu = submenus ? groupMenus.value(f.groupId) : m_trayMenu;
+        menu->addAction(
             QStringLiteral("%1%2: %3").arg(large ? warningMark() : QString(), f.name, detail), this,
             [this, id] {
                 showAndFocus();
-                m_filter->clear();
-                m_list->selectId(id);
+                selectFolder(id);
             });
     }
-    if (!m_store->folders().isEmpty())
+    for (QMenu *menu : std::as_const(groupMenus)) {
+        if (menu->isEmpty())
+            menu->addAction(tr("No folders"))->setEnabled(false);
+    }
+    if (!m_store->folders().isEmpty() || submenus)
         m_trayMenu->addSeparator();
     QStringList tipLines{AppInfo::displayName()};
     tipLines.append(tr("Folders: %1, %2 to clean")
@@ -418,12 +521,12 @@ void MainWindow::updateTray()
                                                 .arg(f->name, Format::bytes(f->warnBytes)));
     }
     m_trayMenu->addSeparator();
-    QAction *trayCleanAll = m_trayMenu->addAction(tr("Clean all…"), this, [this] {
+    QAction *trayCleanAll = m_trayMenu->addAction(tr("Clean everything…"), this, [this] {
         showAndFocus();
-        cleanAll();
+        cleanAll(true);
     });
     trayCleanAll->setEnabled(m_monitor->cleanableBytes() > 0);
-    m_trayMenu->addAction(tr("Rescan all"), m_monitor, &Monitor::rescanAll);
+    m_trayMenu->addAction(tr("Rescan everything"), m_monitor, &Monitor::rescanAll);
     m_trayMenu->addSeparator();
     m_trayMenu->addAction(tr("Show %1").arg(AppInfo::displayName()), this, &MainWindow::showAndFocus);
     m_trayMenu->addAction(tr("Settings…"), this, [this] {
@@ -453,6 +556,56 @@ QUuid MainWindow::currentId() const
 {
     const QUuid id = m_list->currentId();
     return m_store->folder(id) ? id : QUuid();
+}
+
+QList<QUuid> MainWindow::selectedGroups() const
+{
+    QList<QUuid> ids;
+    for (const QUuid &id : m_groups->selectedIds()) {
+        if (m_store->group(id))
+            ids.append(id);
+    }
+    return ids;
+}
+
+QUuid MainWindow::currentGroup() const
+{
+    const QUuid id = m_groups->currentId();
+    if (m_store->group(id))
+        return id;
+    const QList<QUuid> selected = selectedGroups();
+    return selected.isEmpty() ? QUuid() : selected.first();
+}
+
+void MainWindow::onGroupsSelected()
+{
+    const QUuid id = currentId();
+    m_model->setGroups(selectedGroups());
+    if (!id.isNull())
+        m_list->selectId(id);
+    updateFolderActions();
+    updateGroupActions();
+    updateSummary();
+}
+
+void MainWindow::updateGroupActions()
+{
+    const bool hasGroup = !currentGroup().isNull();
+    for (QAction *action : std::as_const(m_groupActions))
+        action->setEnabled(hasGroup);
+    for (QAction *action : std::as_const(m_addActions))
+        action->setEnabled(hasGroup);
+}
+
+void MainWindow::selectFolder(const QUuid &id)
+{
+    const Folder *f = m_store->folder(id);
+    if (!f)
+        return;
+    if (!selectedGroups().contains(f->groupId))
+        m_groups->selectId(f->groupId);
+    m_filter->clear();
+    m_list->selectId(id);
 }
 
 void MainWindow::updateFolderActions()
@@ -525,7 +678,9 @@ void MainWindow::hideWindow()
 
 void MainWindow::saveGeometryState()
 {
-    QSettings().setValue(QStringLiteral("window/geometry"), saveGeometry());
+    QSettings settings;
+    settings.setValue(QStringLiteral("window/geometry"), saveGeometry());
+    settings.setValue(QStringLiteral("window/splitter"), m_splitter->saveState());
 }
 
 void MainWindow::showMessage(const QString &text, bool error)
@@ -584,6 +739,11 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 
 void MainWindow::addFolder()
 {
+    const QUuid groupId = currentGroup();
+    if (groupId.isNull()) {
+        showMessage(tr("Add a group first."));
+        return;
+    }
     const QString dir = QFileDialog::getExistingDirectory(this, tr("Add folder"));
     if (dir.isEmpty())
         return;
@@ -591,9 +751,9 @@ void MainWindow::addFolder()
     Folder f;
     f.path = QDir::cleanPath(QDir::fromNativeSeparators(dir));
     f.name = QFileInfo(f.path).fileName();
+    f.groupId = groupId;
     if (const Folder *existing = m_store->folderWithPath(f.path)) {
-        m_filter->clear();
-        m_list->selectId(existing->id);
+        selectFolder(existing->id);
         showMessage(tr("%1 is already in the list.").arg(existing->name));
         return;
     }
@@ -605,9 +765,10 @@ void MainWindow::addFolder()
         addFolderPath(chosen.path);  // selects it
         return;
     }
-    const QUuid id = m_store->addFolder(chosen);
-    m_filter->clear();
-    m_list->selectId(id);
+    Folder added = chosen;
+    added.groupId = groupId;
+    const QUuid id = m_store->addFolder(added);
+    selectFolder(id);
     m_list->setFocus();
 }
 
@@ -625,8 +786,7 @@ void MainWindow::detectTypes(const QUuid &id)
         updated.typeIds = types;
         m_store->updateFolder(updated);
         m_monitor->rescan(updated.id);
-        m_filter->clear();
-        m_list->selectId(updated.id);
+        selectFolder(updated.id);
         showMessage(tr("%1 now uses the detected types.").arg(updated.name));
         return;
     }
@@ -642,24 +802,29 @@ void MainWindow::addSystemFolders()
         addFolderPath(f.path, {BuiltInTypes::contentsId()}, f.name);
 }
 
-void MainWindow::addFolderPath(const QString &path, const QStringList &typeIds, const QString &name)
+void MainWindow::addFolderPath(const QString &path, const QStringList &typeIds, const QString &name,
+                               const QUuid &groupId)
 {
     const QString clean = QDir::cleanPath(QDir::fromNativeSeparators(path));
     if (const Folder *existing = m_store->folderWithPath(clean)) {
-        m_filter->clear();
-        m_list->selectId(existing->id);
-        showMessage(tr("%1 is already in the list.").arg(existing->name));
+        const Group *g = m_store->group(existing->groupId);
+        selectFolder(existing->id);
+        showMessage(tr("%1 is already in the group %2.").arg(existing->name, g ? g->name : QString()));
         return;
     }
     Folder f;
+    f.groupId = groupId.isNull() ? currentGroup() : groupId;
+    if (!m_store->group(f.groupId)) {
+        showMessage(tr("Add a group first."));
+        return;
+    }
     f.path = clean;
     f.name = name.isEmpty() ? QFileInfo(clean).fileName() : name;
     if (f.name.isEmpty())
         f.name = QDir::toNativeSeparators(clean);
     f.typeIds = typeIds.isEmpty() ? QStringList{BuiltInTypes::contentsId()} : typeIds;
     const QUuid id = m_store->addFolder(f);
-    m_filter->clear();
-    m_list->selectId(id);
+    selectFolder(id);
     m_list->setFocus();
 }
 
@@ -737,21 +902,27 @@ void MainWindow::cleanFolder(const QUuid &id)
     m_monitor->clean(id);
 }
 
-void MainWindow::cleanAll()
+void MainWindow::cleanAll(bool everything)
 {
-    if (m_monitor->cleanableBytes() <= 0)
+    const QList<QUuid> groups = selectedGroups();
+    const qint64 cleanable =
+        everything ? m_monitor->cleanableBytes() : m_monitor->groupCleanableBytes(groups);
+    if (cleanable <= 0)
         return;
     if (m_confirmCleaning) {
         QStringList lines;
-        for (const Folder &f : m_store->folders()) {
+        for (const Folder &f : everything ? m_store->folders() : m_store->foldersIn(groups)) {
             const ScanResult r = m_monitor->result(f.id);
             if (r.cleanableBytes > 0)
                 lines.append(QStringLiteral("• %1: %2").arg(f.name, Format::bytes(r.cleanableBytes)));
         }
-        QMessageBox box(QMessageBox::Warning, tr("Clean all"),
-                        tr("Delete what every folder's types match, about %1? This cannot be undone.")
-                            .arg(Format::bytes(m_monitor->cleanableBytes())),
-                        QMessageBox::Cancel, this);
+        const QString question =
+            everything
+                ? tr("Delete what every folder's types match, about %1? This cannot be undone.")
+                : tr("Delete what the types of the selected groups' folders match, about %1? "
+                     "This cannot be undone.");
+        QMessageBox box(QMessageBox::Warning, everything ? tr("Clean everything") : tr("Clean groups"),
+                        question.arg(Format::bytes(cleanable)), QMessageBox::Cancel, this);
         box.setInformativeText(lines.join(QLatin1Char('\n')));
         QPushButton *ok = box.addButton(tr("Delete"), QMessageBox::DestructiveRole);
         box.setDefaultButton(QMessageBox::Cancel);
@@ -759,7 +930,113 @@ void MainWindow::cleanAll()
         if (box.clickedButton() != ok)
             return;
     }
-    m_monitor->cleanAll();
+    if (everything)
+        m_monitor->cleanAll();
+    else
+        m_monitor->cleanGroups(groups);
+}
+
+void MainWindow::addGroup()
+{
+    // A name not taken yet: "New group", "New group 2", ...
+    QString name = tr("New group");
+    for (int n = 2;; ++n) {
+        const bool taken = std::any_of(m_store->groups().cbegin(), m_store->groups().cend(),
+                                       [&name](const Group &g) { return g.name == name; });
+        if (!taken)
+            break;
+        name = tr("New group %1").arg(n);
+    }
+    const QUuid id = m_store->addGroup(name);
+    m_groups->selectId(id);
+    m_groups->setFocus();
+    m_groups->renameCurrent();
+}
+
+void MainWindow::removeGroups()
+{
+    const QList<QUuid> ids = selectedGroups();
+    if (ids.isEmpty())
+        return;
+    const int folders = static_cast<int>(m_store->foldersIn(ids).size());
+    QString question;
+    if (ids.size() == 1) {
+        question = tr("Delete the group \"%1\" and stop monitoring its %n folder(s)? Nothing in the "
+                      "folders is deleted.",
+                      nullptr, folders)
+                       .arg(m_store->group(ids.first())->name);
+    } else {
+        question = tr("Delete %1 groups and stop monitoring their %n folder(s)? Nothing in the "
+                      "folders is deleted.",
+                      nullptr, folders)
+                       .arg(ids.size());
+    }
+    if (QMessageBox::question(this, tr("Delete group"), question) != QMessageBox::Yes)
+        return;
+    for (const QUuid &id : ids)
+        m_store->removeGroup(id);
+}
+
+void MainWindow::moveGroup(int delta)
+{
+    const QUuid id = currentGroup();
+    if (id.isNull())
+        return;
+    m_store->moveGroupBy(id, delta);
+    m_groups->selectId(id);
+}
+
+void MainWindow::moveFoldersToGroup(const QList<QUuid> &folderIds, const QUuid &groupId)
+{
+    const Group *g = m_store->group(groupId);
+    if (!g)
+        return;
+    const QString name = g->name;
+    int moved = 0;
+    for (const QUuid &id : folderIds) {
+        const Folder *f = m_store->folder(id);
+        if (!f || f->groupId == groupId)
+            continue;
+        m_store->moveToGroup(id, groupId);
+        ++moved;
+    }
+    if (moved > 0)
+        showMessage(tr("Moved %n folder(s) to %1.", nullptr, moved).arg(name));
+}
+
+void MainWindow::fillMoveMenu(QMenu *menu, const QUuid &folderId)
+{
+    const Folder *f = m_store->folder(folderId);
+    if (!f)
+        return;
+    for (const Group &g : m_store->groups()) {
+        const QUuid groupId = g.id;
+        QAction *a = menu->addAction(g.name, this, [this, folderId, groupId] {
+            moveFoldersToGroup({folderId}, groupId);
+        });
+        a->setCheckable(true);
+        a->setChecked(groupId == f->groupId);
+        a->setEnabled(groupId != f->groupId);
+    }
+}
+
+void MainWindow::showGroupContextMenu(const QUuid &id, const QPoint &globalPos)
+{
+    QMenu menu(this);
+    const bool hasGroup = m_store->group(id) != nullptr;
+    const QList<QUuid> groups = selectedGroups();
+    if (hasGroup) {
+        menu.addAction(tr("&Clean…"), this, [this] { cleanAll(false); })
+            ->setEnabled(m_monitor->groupCleanableBytes(groups) > 0);
+        menu.addAction(tr("Re&scan"), this, [this, groups] { m_monitor->rescanGroups(groups); });
+        menu.addSeparator();
+        menu.addAction(tr("&Rename"), this, [this] { m_groups->renameCurrent(); })
+            ->setEnabled(groups.size() == 1);
+        menu.addAction(tr("&Delete…"), this, &MainWindow::removeGroups);
+        menu.addSeparator();
+    }
+    menu.addAction(tr("&New group"), this, &MainWindow::addGroup);
+    menu.exec(globalPos);
 }
 
 void MainWindow::onCleaned(const QUuid &id, const CleanResult &result)
@@ -855,6 +1132,8 @@ void MainWindow::showContextMenu(const QUuid &id, const QPoint &globalPos)
     menu.addSeparator();
     menu.addAction(tr("&Open folder"), this, [this, id] { openFolder(id); });
     menu.addAction(tr("Copy &path"), this, [this, id] { copyPath(id); });
+    menu.addSeparator();
+    fillMoveMenu(menu.addMenu(tr("Move to &group")), id);
     menu.addSeparator();
     menu.addAction(tr("&Edit…"), this, [this, id] { editFolder(id); });
     menu.addAction(tr("Re&move…"), this, &MainWindow::removeFolder);

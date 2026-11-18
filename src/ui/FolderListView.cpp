@@ -2,8 +2,11 @@
 
 #include "FolderDelegate.h"
 #include "FolderModel.h"
+#include "GroupListView.h"
 
 #include <QContextMenuEvent>
+#include <QCursor>
+#include <QDrag>
 #include <QFileInfo>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -22,6 +25,33 @@ FolderListView::FolderListView(FolderModel *model, QWidget *parent)
     setEditTriggers(QAbstractItemView::NoEditTriggers);
     setAcceptDrops(true);
     setDropIndicatorShown(false);
+    setDragEnabled(true);
+
+    // A reset (any change to the store) drops the current row; put it back.
+    connect(model, &QAbstractItemModel::modelAboutToBeReset, this,
+            [this] { m_keptId = currentId(); });
+    connect(model, &QAbstractItemModel::modelReset, this, [this] {
+        if (!m_keptId.isNull())
+            selectId(m_keptId);
+    });
+}
+
+void FolderListView::startDrag(Qt::DropActions)
+{
+    // Only the group list takes these drops, and it moves the folder itself: the model's rows
+    // must not be removed by a Move drop, as QAbstractItemView would do.
+    const QModelIndex index = currentIndex();
+    if (!index.isValid())
+        return;
+    auto *mime = new QMimeData;
+    mime->setData(GroupListView::folderMimeType(),
+                  m_model->idAt(index.row()).toString(QUuid::WithoutBraces).toLatin1());
+    auto *drag = new QDrag(this);
+    drag->setMimeData(mime);
+    const QRect rect = visualRect(index);
+    drag->setPixmap(viewport()->grab(rect));
+    drag->setHotSpot(viewport()->mapFromGlobal(QCursor::pos()) - rect.topLeft());
+    drag->exec(Qt::MoveAction);
 }
 
 QUuid FolderListView::currentId() const
@@ -173,9 +203,11 @@ void FolderListView::paintEvent(QPaintEvent *event)
     QColor color = palette().color(QPalette::Text);
     color.setAlphaF(0.45);
     painter.setPen(color);
-    const QString text = m_model->filter().isEmpty()
-                             ? tr("Add a folder with the + button, or drop folders here")
-                             : tr("No matches");
+    const QString text = m_model->groups().isEmpty()
+                             ? tr("Add a group with Group > New group")
+                             : !m_model->filter().isEmpty()
+                                   ? tr("No matches")
+                                   : tr("Add a folder with the + button, or drop folders here");
     painter.drawText(viewport()->rect(), Qt::AlignCenter | Qt::TextWordWrap, text);
 }
 

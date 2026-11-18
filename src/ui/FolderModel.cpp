@@ -39,8 +39,15 @@ QVariant FolderModel::data(const QModelIndex &index, int role) const
     switch (role) {
     case Qt::DisplayRole:
         return f->name;
-    case Qt::ToolTipRole:
-        return QDir::toNativeSeparators(f->path);
+    case Qt::ToolTipRole: {
+        const Group *g = m_store->group(f->groupId);
+        return QStringLiteral("%1\n%2").arg(QDir::toNativeSeparators(f->path),
+                                             tr("Group: %1").arg(g ? g->name : QString()));
+    }
+    case GroupRole: {
+        const Group *g = m_store->group(f->groupId);
+        return g ? g->name : QString();
+    }
     case IdRole:
         return id;
     case PathRole:
@@ -78,6 +85,22 @@ QVariant FolderModel::data(const QModelIndex &index, int role) const
     }
 }
 
+Qt::ItemFlags FolderModel::flags(const QModelIndex &index) const
+{
+    Qt::ItemFlags f = QAbstractListModel::flags(index);
+    if (index.isValid())
+        f |= Qt::ItemIsDragEnabled;
+    return f;
+}
+
+void FolderModel::setGroups(const QList<QUuid> &groupIds)
+{
+    if (groupIds == m_groupIds)
+        return;
+    m_groupIds = groupIds;
+    reload();
+}
+
 void FolderModel::setFilter(const QString &text)
 {
     const QString trimmed = text.trimmed();
@@ -101,7 +124,7 @@ void FolderModel::reload()
 {
     beginResetModel();
     m_ids.clear();
-    for (const Folder &f : m_store->folders()) {
+    for (const Folder &f : m_store->foldersIn(m_groupIds)) {
         if (m_filter.isEmpty() || f.name.contains(m_filter, Qt::CaseInsensitive)
             || QDir::toNativeSeparators(f.path).contains(m_filter, Qt::CaseInsensitive)
             || f.path.contains(m_filter, Qt::CaseInsensitive))

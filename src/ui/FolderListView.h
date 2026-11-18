@@ -6,7 +6,7 @@
 class FolderModel;
 
 // The folder list. Clicking a row's Clean button asks to clean it, Enter or a double click
-// edits the folder, and typing goes to the filter.
+// edits the folder, and typing goes to the filter. A row can be dragged onto a group.
 class FolderListView : public QListView
 {
     Q_OBJECT
@@ -39,6 +39,7 @@ protected:
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dropEvent(QDropEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void startDrag(Qt::DropActions supportedActions) override;
     void currentChanged(const QModelIndex &current, const QModelIndex &previous) override;
 
 private:
@@ -47,4 +48,5 @@ private:
 
     FolderModel *m_model;
     QPersistentModelIndex m_hoverIndex;
+    QUuid m_keptId;  // the current folder across a model reset
 };

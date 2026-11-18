@@ -11,7 +11,8 @@
 #include <algorithm>
 
 namespace {
-constexpr int FileVersion = 1;
+// 1: folders at the top level. 2: folders nested in groups.
+constexpr int FileVersion = 2;
 constexpr int SaveDelayMs = 300;
 
 double toJsonNumber(qint64 value)
@@ -44,8 +45,14 @@ QString Store::defaultFilePath()
     return QDir(dir).filePath(QStringLiteral("dev-asset-cleaner.json"));
 }
 
+QString Store::defaultGroupName()
+{
+    return tr("Default");
+}
+
 bool Store::load(QString *error)
 {
+    m_groups.clear();
     m_folders.clear();
     m_customTypes.clear();
     m_settings = Settings{};
@@ -54,6 +61,7 @@ bool Store::load(QString *error)
     QFile file(m_filePath);
     if (!file.exists()) {
         m_isNew = true;
+        m_groups.append(Group{QUuid::createUuid(), defaultGroupName()});
         return true;
     }
     if (!file.open(QIODevice::ReadOnly)) {
@@ -92,9 +100,31 @@ bool Store::load(QString *error)
             m_customTypes.append(t);
         }
     }
-    for (const QJsonValue &v : root.value(QStringLiteral("folders")).toArray()) {
-        if (v.isObject())
-            m_folders.append(Folder::fromJson(v.toObject()));
+    const auto addFolders = [this](const QJsonArray &folders, const QUuid &groupId) {
+        for (const QJsonValue &v : folders) {
+            if (!v.isObject())
+                continue;
+            Folder f = Folder::fromJson(v.toObject());
+            if (rowOf(f.id) >= 0)
+                f.id = QUuid::createUuid();
+            f.groupId = groupId;
+            m_folders.append(f);
+        }
+    };
+    if (root.contains(QStringLiteral("groups"))) {
+        for (const QJsonValue &v : root.value(QStringLiteral("groups")).toArray()) {
+            const QJsonObject obj = v.toObject();
+            Group g{QUuid::fromString(obj.value(QStringLiteral("id")).toString()),
+                    obj.value(QStringLiteral("name")).toString()};
+            if (g.id.isNull() || groupRowOf(g.id) >= 0)
+                g.id = QUuid::createUuid();
+            m_groups.append(g);
+            addFolders(obj.value(QStringLiteral("folders")).toArray(), g.id);
+        }
+    } else {
+        // Version 1 had no groups.
+        m_groups.append(Group{QUuid::createUuid(), defaultGroupName()});
+        addFolders(root.value(QStringLiteral("folders")).toArray(), m_groups.first().id);
     }
     return true;
 }
@@ -103,9 +133,19 @@ bool Store::save(QString *error)
 {
     m_saveTimer.stop();
 
-    QJsonArray folders;
-    for (const Folder &f : m_folders)
-        folders.append(f.toJson());
+    QJsonArray groups;
+    for (const Group &g : m_groups) {
+        QJsonArray folders;
+        for (const Folder &f : m_folders) {
+            if (f.groupId == g.id)
+                folders.append(f.toJson());
+        }
+        groups.append(QJsonObject{
+            {QStringLiteral("id"), g.id.toString(QUuid::WithoutBraces)},
+            {QStringLiteral("name"), g.name},
+            {QStringLiteral("folders"), folders},
+        });
+    }
 
     const QJsonObject root{
         {QStringLiteral("version"), FileVersion},
@@ -117,7 +157,7 @@ bool Store::save(QString *error)
              {QStringLiteral("totalWarnBytes"), toJsonNumber(m_settings.totalWarnBytes)},
          }},
         {QStringLiteral("types"), cleanerTypesToJson(m_customTypes)},
-        {QStringLiteral("folders"), folders},
+        {QStringLiteral("groups"), groups},
     };
 
     QDir().mkpath(QFileInfo(m_filePath).absolutePath());
@@ -143,6 +183,65 @@ void Store::flush()
         save();
 }
 
+const Group *Store::group(const QUuid &id) const
+{
+    const int row = groupRowOf(id);
+    return row < 0 ? nullptr : &m_groups.at(row);
+}
+
+QUuid Store::addGroup(const QString &name)
+{
+    const Group g{QUuid::createUuid(), name};
+    m_groups.append(g);
+    touch();
+    return g.id;
+}
+
+void Store::renameGroup(const QUuid &id, const QString &name)
+{
+    const int row = groupRowOf(id);
+    if (row < 0 || m_groups.at(row).name == name)
+        return;
+    m_groups[row].name = name;
+    touch();
+}
+
+void Store::removeGroup(const QUuid &id)
+{
+    const int row = groupRowOf(id);
+    if (row < 0)
+        return;
+    m_groups.removeAt(row);
+    m_folders.removeIf([&id](const Folder &f) { return f.groupId == id; });
+    touch();
+}
+
+void Store::moveGroupBy(const QUuid &id, int delta)
+{
+    const int row = groupRowOf(id);
+    if (row < 0)
+        return;
+    const int to = std::clamp(row + delta, 0, static_cast<int>(m_groups.size()) - 1);
+    if (to == row)
+        return;
+    m_groups.move(row, to);
+    touch();
+}
+
+QList<Folder> Store::foldersIn(const QList<QUuid> &groupIds) const
+{
+    QList<Folder> result;
+    for (const Group &g : m_groups) {
+        if (!groupIds.contains(g.id))
+            continue;
+        for (const Folder &f : m_folders) {
+            if (f.groupId == g.id)
+                result.append(f);
+        }
+    }
+    return result;
+}
+
 const Folder *Store::folder(const QUuid &id) const
 {
     const int row = rowOf(id);
@@ -162,6 +261,8 @@ const Folder *Store::folderWithPath(const QString &path) const
 
 QUuid Store::addFolder(Folder folder)
 {
+    if (groupRowOf(folder.groupId) < 0)
+        return {};
     if (folder.id.isNull() || rowOf(folder.id) >= 0)
         folder.id = QUuid::createUuid();
     m_folders.append(folder);
@@ -172,9 +273,13 @@ QUuid Store::addFolder(Folder folder)
 void Store::updateFolder(const Folder &folder)
 {
     const int row = rowOf(folder.id);
-    if (row < 0 || m_folders.at(row) == folder)
+    if (row < 0)
         return;
-    m_folders[row] = folder;
+    Folder updated = folder;
+    updated.groupId = m_folders.at(row).groupId;
+    if (m_folders.at(row) == updated)
+        return;
+    m_folders[row] = updated;
     touch();
 }
 
@@ -192,10 +297,28 @@ void Store::moveBy(const QUuid &id, int delta)
     const int row = rowOf(id);
     if (row < 0)
         return;
-    const int to = std::clamp(row + delta, 0, static_cast<int>(m_folders.size()) - 1);
-    if (to == row)
+    // The rows of the group's folders, in order; move to the one `delta` places away.
+    QList<int> rows;
+    for (int i = 0; i < m_folders.size(); ++i) {
+        if (m_folders.at(i).groupId == m_folders.at(row).groupId)
+            rows.append(i);
+    }
+    const int position = static_cast<int>(rows.indexOf(row));
+    const int to = std::clamp(position + delta, 0, static_cast<int>(rows.size()) - 1);
+    if (to == position)
         return;
-    m_folders.move(row, to);
+    m_folders.move(row, rows.at(to));
+    touch();
+}
+
+void Store::moveToGroup(const QUuid &id, const QUuid &groupId)
+{
+    const int row = rowOf(id);
+    if (row < 0 || groupRowOf(groupId) < 0 || m_folders.at(row).groupId == groupId)
+        return;
+    Folder f = m_folders.takeAt(row);
+    f.groupId = groupId;
+    m_folders.append(f);
     touch();
 }
 
@@ -250,6 +373,15 @@ int Store::rowOf(const QUuid &id) const
 {
     for (int i = 0; i < m_folders.size(); ++i) {
         if (m_folders.at(i).id == id)
+            return i;
+    }
+    return -1;
+}
+
+int Store::groupRowOf(const QUuid &id) const
+{
+    for (int i = 0; i < m_groups.size(); ++i) {
+        if (m_groups.at(i).id == id)
             return i;
     }
     return -1;

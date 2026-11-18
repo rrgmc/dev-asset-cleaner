@@ -49,6 +49,7 @@ struct Sample
     qint64 total;
     qint64 cleanable;
     qint64 warn = 0;
+    int group = 0;  // 0: Projects, 1: Tool caches
 };
 
 void fill(Store &store, Monitor &monitor)
@@ -59,14 +60,18 @@ void fill(Store &store, Monitor &monitor)
         {QStringLiteral("Rust experiments"), QStringLiteral("src/rust"), {QStringLiteral("rust")},
          21'300 * MB, 19'800 * MB},
         {QStringLiteral("Go module cache"), QStringLiteral("go/pkg/mod"),
-         {QStringLiteral("contents")}, 6'200 * MB, 6'200 * MB},
+         {QStringLiteral("contents")}, 6'200 * MB, 6'200 * MB, 0, 1},
         {QStringLiteral("Xcode derived data"), QStringLiteral("Library/Developer/Xcode/DerivedData"),
-         {QStringLiteral("contents")}, 14'700 * MB, 14'700 * MB},
+         {QStringLiteral("contents")}, 14'700 * MB, 14'700 * MB, 0, 1},
         {QStringLiteral("npm cache"), QStringLiteral(".npm/_cacache"), {QStringLiteral("contents")},
-         2'100 * MB, 2'100 * MB},
+         2'100 * MB, 2'100 * MB, 0, 1},
         {QStringLiteral("Work"), QStringLiteral("Work"),
          {QStringLiteral("node"), QStringLiteral("python")}, 12'800 * MB, 0},
     };
+    // The new store's "Default" group holds the projects; the caches get a group of their own.
+    const QList<QUuid> groups{store.groups().first().id, store.addGroup(QStringLiteral("Tool caches"))};
+    store.renameGroup(groups.first(), QStringLiteral("Projects"));
+    store.addGroup(QStringLiteral("System"));
     QList<QUuid> ids;
     for (const Sample &s : samples) {
         Folder f;
@@ -74,6 +79,7 @@ void fill(Store &store, Monitor &monitor)
         f.path = Home + s.path;
         f.typeIds = s.types;
         f.warnBytes = s.warn;
+        f.groupId = groups.at(s.group);
         ids.append(store.addFolder(f));
     }
     // The real scans of the made-up paths fail quickly; replace their results afterwards.
@@ -163,7 +169,7 @@ int main(int argc, char *argv[])
     Monitor monitor(&store);
 
     MainWindow window(&store, &monitor);
-    window.resize(760, 470);
+    window.resize(900, 470);
     fill(store, monitor);
     window.showAndFocus();
     // Let the window lay out and paint before grabbing it.

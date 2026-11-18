@@ -7,10 +7,13 @@
 
 class FolderListView;
 class FolderModel;
+class GroupListView;
+class GroupModel;
 class Monitor;
 class QLabel;
 class QLineEdit;
 class QMenu;
+class QSplitter;
 class Store;
 class TrayIcon;
 
@@ -26,9 +29,12 @@ public:
     void toggleVisible();
     void showMessage(const QString &text, bool error = false);
 
-    // Adds a folder with the given types, or selects it when it is in the list already.
+    // Adds a folder with the given types to a group (by default the current one), or selects
+    // it when it is in a group already.
     void addFolderPath(const QString &path, const QStringList &typeIds = {},
-                       const QString &name = {});
+                       const QString &name = {}, const QUuid &groupId = {});
+    // Shows the folder's group, if it is not shown, and selects the folder.
+    void selectFolder(const QUuid &id);
 
     // Asks before deleting; tests turn the question off.
     void setConfirmCleaning(bool confirm) { m_confirmCleaning = confirm; }
@@ -45,6 +51,11 @@ private:
     void updateSummary();
     void updateFolderActions();
     QUuid currentId() const;
+    // The groups whose folders the list shows, and the one new folders go to.
+    QList<QUuid> selectedGroups() const;
+    QUuid currentGroup() const;
+    void onGroupsSelected();
+    void updateGroupActions();
     void showAbout();
     void hideWindow();
     void saveGeometryState();
@@ -60,7 +71,14 @@ private:
     void removeFolder();
     void rescanFolder();
     void cleanFolder(const QUuid &id);
-    void cleanAll();
+    // Cleans the selected groups' folders, or every folder.
+    void cleanAll(bool everything = false);
+    void addGroup();
+    void removeGroups();
+    void moveGroup(int delta);
+    void moveFoldersToGroup(const QList<QUuid> &folderIds, const QUuid &groupId);
+    void fillMoveMenu(QMenu *menu, const QUuid &folderId);
+    void showGroupContextMenu(const QUuid &id, const QPoint &globalPos);
     void showItems();
     void openFolder(const QUuid &id);
     void copyPath(const QUuid &id);
@@ -73,6 +91,9 @@ private:
     Monitor *m_monitor;
     FolderModel *m_model;
     FolderListView *m_list;
+    GroupModel *m_groupModel;
+    GroupListView *m_groups;
+    QSplitter *m_splitter = nullptr;
     QLineEdit *m_filter;
     QLabel *m_summary;
     TrayIcon *m_tray = nullptr;
@@ -82,6 +103,10 @@ private:
     bool m_confirmCleaning = true;
     QString m_lastWarning;  // the warning the tray last notified about
     QList<QAction *> m_folderActions;  // need a selected folder
+    QList<QAction *> m_groupActions;   // need a selected group
+    QList<QAction *> m_addActions;     // need a group to add to
     QAction *m_cleanAction = nullptr;
-    QAction *m_cleanAllAction = nullptr;
+    QAction *m_cleanAllAction = nullptr;       // the selected groups
+    QAction *m_cleanEverythingAction = nullptr;
+    QMenu *m_moveMenu = nullptr;
 };
