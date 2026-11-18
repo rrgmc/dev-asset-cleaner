@@ -109,6 +109,12 @@ work in the main checkout's working tree, which stays on `master`.
   deleting everything: a Matching folder without types deletes nothing, and detection only
   makes Matching folders. `removeTree` never follows symbolic links or junctions. Cleaning
   scans again before it deletes, so it never deletes from an old result.
+- Cleaning moves to the trash by default (`CleanMethod`). The UI picks the method when the
+  cleaning starts, through `CleanChoice::method`: Delete when `Settings::deleteDirectly` is on
+  or Shift is held, except during the Clean shortcuts (`ignoreShiftInShortcuts`). Items that
+  `SystemFolders::isInTrash` places in a trash are always deleted, and a failed move never
+  falls back to deleting. Tests that clean must use `CleanMethod::Delete` or set
+  `deleteDirectly`, so that nothing reaches the real trash.
 - A folder's `excludes` names first-level subfolders that `scan`, `scanWhole` and `detect`
   size but never match or delete, for every kind; `ExcludeDialog` edits them.
 - Built-in types are code (`BuiltInTypes::all`), not data. Custom types are stored; a stored

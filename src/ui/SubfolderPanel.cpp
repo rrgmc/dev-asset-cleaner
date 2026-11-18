@@ -1,5 +1,6 @@
 #include "SubfolderPanel.h"
 
+#include "CleanChoice.h"
 #include "CleanableListView.h"
 #include "FolderModel.h"
 #include "Format.h"
@@ -175,16 +176,24 @@ void SubfolderPanel::cleanRow(int row)
         return;
     const QString name = m_model->nameAt(row);
     const ScanResult r = m_model->resultAt(row);
+    const QString path = m_model->pathAt(row);
+    const CleanMethod method = CleanChoice::method(m_store->settings());
     if (m_confirmCleaning) {
-        QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(name),
-                        tr("Delete %n folder(s) that the types match in %1, about %2? This cannot "
-                           "be undone.",
-                           nullptr, static_cast<int>(r.items.size()))
-                            .arg(QDir::toNativeSeparators(m_model->pathAt(row)),
-                                 Format::bytes(r.cleanableBytes)),
+        const bool deletes = CleanChoice::forFolder(method, path) == CleanMethod::Delete;
+        const int n = static_cast<int>(r.items.size());
+        const QString question =
+            deletes ? tr("Delete %n folder(s) that the types match in %1, about %2? This cannot "
+                         "be undone.",
+                         nullptr, n)
+                          .arg(QDir::toNativeSeparators(path), Format::bytes(r.cleanableBytes))
+                    : tr("Move %n folder(s) that the types match in %1, about %2, to the %3?",
+                         nullptr, n)
+                          .arg(QDir::toNativeSeparators(path), Format::bytes(r.cleanableBytes),
+                               CleanChoice::trashName());
+        QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(name), question,
                         QMessageBox::Cancel, this);
         QPushButton *details = box.addButton(tr("Show items…"), QMessageBox::HelpRole);
-        QPushButton *ok = box.addButton(tr("Delete"), QMessageBox::DestructiveRole);
+        QPushButton *ok = CleanChoice::addConfirmButton(box, deletes);
         box.setDefaultButton(QMessageBox::Cancel);
         // The Show items button would close the box; reopen it afterwards.
         for (;;) {
@@ -197,7 +206,7 @@ void SubfolderPanel::cleanRow(int row)
             return;
     }
     // The row may have moved while the question was open; the name still finds it.
-    m_model->clean(m_model->rowOf(name));
+    m_model->clean(m_model->rowOf(name), method);
 }
 
 void SubfolderPanel::showItems(int row)
@@ -224,7 +233,7 @@ void SubfolderPanel::showContextMenu(int row, const QPoint &globalPos)
 
 void SubfolderPanel::onCleaned(const QString &name, const CleanResult &result)
 {
-    m_message = tr("Freed %1 in %2.").arg(Format::bytes(result.freedBytes), name);
+    m_message = CleanChoice::doneMessage(result, name);
     updateStatus();
     // The main window's numbers come from the folder's own scan.
     m_monitor->rescan(m_folderId);
@@ -235,9 +244,8 @@ void SubfolderPanel::onCleaned(const QString &name, const CleanResult &result)
         shown.append(tr("…and %n more.", nullptr,
                         static_cast<int>(result.failures.size() - MaxFailuresShown)));
     QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(name),
-                    tr("%n item(s) could not be deleted.", nullptr,
-                       static_cast<int>(result.failures.size())),
-                    QMessageBox::Ok, this);
+                    CleanChoice::failureText(result), QMessageBox::Ok, this);
+    box.setInformativeText(CleanChoice::failureHint(result));
     box.setDetailedText(shown.join(QLatin1Char('\n')));
     box.exec();
 }

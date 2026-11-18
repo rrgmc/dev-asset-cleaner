@@ -24,6 +24,7 @@ private:
     Settings m_original;
     QCheckBox *m_closeToTray;
     QCheckBox *m_startAtSignIn;
+    QCheckBox *m_deleteDirectly;
     QSpinBox *m_rescan;
     SizeSpinBox *m_freeWarn;
     SizeSpinBox *m_totalWarn;

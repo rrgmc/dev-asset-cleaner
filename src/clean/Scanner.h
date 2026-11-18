@@ -26,10 +26,18 @@ struct ScanResult
     QDateTime finishedAt;
 };
 
+// What cleaning does with what it finds.
+enum class CleanMethod {
+    Trash,   // moves it to the trash; what is already in a trash is deleted
+    Delete,  // deletes it for good
+};
+
 struct CleanResult
 {
-    qint64 freedBytes = 0;
-    QStringList failures;  // one line per path that could not be deleted
+    qint64 freedBytes = 0;     // deleted for good
+    qint64 trashedBytes = 0;   // moved to the trash
+    QStringList failures;      // one line per path that could not be deleted or moved
+    bool trashFailed = false;  // some of the failures are moves to the trash
 };
 
 // What one cleaner type would delete in a folder.
@@ -92,9 +100,17 @@ qint64 treeSize(const QString &path, const CancelCheck &canceled = {});
 // drive's root, the home folder and the folders above it. Matching folders are always safe.
 QString unsafeWholeReason(const QString &path);
 
-// Deletes the items. Read-only files and folders (such as Go's module cache) are made
-// writable first.
-CleanResult clean(const QList<ScanItem> &items, const CancelCheck &canceled = {});
+// Deletes the items, or moves them to the trash. Items already in a trash
+// (SystemFolders::isInTrash) are always deleted. Read-only files and folders (such as Go's
+// module cache) are made writable first. A move that fails is reported; it never falls back
+// to deleting.
+CleanResult clean(const QList<ScanItem> &items, CleanMethod method,
+                  const CancelCheck &canceled = {});
+
+// Moves a file, or a folder and everything below it, to the trash. Returns false when the
+// item stays where it was. Sets `deleted` when the system deleted the item instead of keeping
+// it in the trash, which Windows does with items too large for the Recycle Bin.
+bool moveToTrash(const QString &path, QString *error = nullptr, bool *deleted = nullptr);
 
 // Deletes a file, or a folder and everything below it. Does not follow symbolic links.
 bool removeTree(const QString &path, QString *error = nullptr);

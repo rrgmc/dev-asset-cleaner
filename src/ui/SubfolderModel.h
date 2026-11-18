@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <memory>
+#include <optional>
 
 class Store;
 
@@ -42,9 +43,9 @@ public:
     void reload();
     void rescan(int row);
     void rescanAll();
-    // Scans the subfolder again and deletes what it finds. Refused while it is busy, for an
-    // excluded subfolder, and while Monitor cleans the whole folder.
-    void clean(int row);
+    // Scans the subfolder again and deletes what it finds, or moves it to the trash. Refused
+    // while it is busy, for an excluded subfolder, and while Monitor cleans the whole folder.
+    void clean(int row, CleanMethod method);
     // Asks running work to stop and waits for it.
     void cancelAll();
 
@@ -63,7 +64,8 @@ private:
         int generation = 0;
     };
 
-    void start(int row, bool cleaning);
+    // Scans the row; with a method, cleans it that way first.
+    void start(int row, std::optional<CleanMethod> cleaning);
     void finish(const QString &name, int generation, const ScanResult &result,
                 const CleanResult *cleanResult);
     bool folderCleaning() const;

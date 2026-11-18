@@ -115,9 +115,16 @@ Rust and JavaScript.
 Read-only files and folders, such as those in Go's module cache, are made writable and then
 deleted. Symbolic links are deleted, never followed.
 
-Before it deletes anything, the app asks, and **Show items** lists what will go. Cleaning scans
-the folder again first, so it deletes what is there at that moment. Deleted files do not go to
-the trash: cleaning is meant to free space, and it cannot be undone.
+Before it cleans anything, the app asks, and **Show items** lists what will go. Cleaning scans
+the folder again first, so it cleans what is there at that moment.
+
+Cleaning moves what it finds to the trash (the Recycle Bin on Windows), so it can be undone.
+The space is freed only when the trash is emptied. To delete directly instead, hold Shift while
+you click a Clean button or menu item. To always delete directly, turn on **Cleaning deletes
+directly** in Settings. Items that are already in a trash, such as a Recycle Bin added through
+**Add system folders**, are always deleted. An item that cannot be moved to the trash, for
+example on a network drive, is left in place and reported. The keyboard shortcuts always
+use the setting, because Shift is part of Ctrl+Shift+K.
 
 ## Keyboard
 

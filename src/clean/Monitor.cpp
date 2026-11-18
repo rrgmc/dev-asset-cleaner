@@ -103,7 +103,7 @@ void Monitor::rescanAll()
     updateVolumes();
 }
 
-void Monitor::clean(const QUuid &id)
+void Monitor::clean(const QUuid &id, CleanMethod method)
 {
     const Folder *f = m_store->folder(id);
     if (!f)
@@ -123,13 +123,13 @@ void Monitor::clean(const QUuid &id)
     const int generation = ++entry.generation;
     const FolderScan scan = folderScan(m_store, *f);
     const auto cancel = entry.cancel;
-    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, scan, cancel] {
+    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, scan, cancel, method] {
         const CancelCheck canceled = [cancel] { return cancel->load(); };
         // Scan again rather than trust an old result: the folder may have changed since.
         const ScanResult before = scan(canceled);
         CleanResult cleanResult;
         if (before.valid && before.error.isEmpty())
-            cleanResult = Scanner::clean(before.items, canceled);
+            cleanResult = Scanner::clean(before.items, method, canceled);
         const ScanResult after = scan(canceled);
         QMetaObject::invokeMethod(this, [this, id, generation, after, cleanResult] {
             finish(id, generation, after, &cleanResult);
@@ -139,9 +139,9 @@ void Monitor::clean(const QUuid &id)
     emit summaryChanged();
 }
 
-void Monitor::cleanAll()
+void Monitor::cleanAll(CleanMethod method)
 {
-    cleanFolders(m_store->folders());
+    cleanFolders(m_store->folders(), method);
 }
 
 void Monitor::rescanGroups(const QList<QUuid> &groupIds)
@@ -151,16 +151,16 @@ void Monitor::rescanGroups(const QList<QUuid> &groupIds)
     updateVolumes();
 }
 
-void Monitor::cleanGroups(const QList<QUuid> &groupIds)
+void Monitor::cleanGroups(const QList<QUuid> &groupIds, CleanMethod method)
 {
-    cleanFolders(m_store->foldersIn(groupIds));
+    cleanFolders(m_store->foldersIn(groupIds), method);
 }
 
-void Monitor::cleanFolders(const QList<Folder> &folders)
+void Monitor::cleanFolders(const QList<Folder> &folders, CleanMethod method)
 {
     for (const Folder &f : folders) {
         if (result(f.id).cleanableBytes > 0 || !result(f.id).valid)
-            clean(f.id);
+            clean(f.id, method);
     }
 }
 

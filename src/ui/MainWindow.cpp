@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include "AppInfo.h"
+#include "CleanChoice.h"
 #include "DetectDialog.h"
 #include "ExcludeDialog.h"
 #include "FreeSpaceDialog.h"
@@ -347,6 +348,9 @@ void MainWindow::createActions()
     m_cleanAllAction = groupMenu->addAction(tr("&Clean the selected groups…"), this,
                                             [this] { cleanAll(false); });
     m_cleanAllAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
+    // Shift held for these shortcuts does not mean "delete directly"; only Shift-clicks do.
+    CleanChoice::ignoreShiftInShortcuts(m_cleanAction);
+    CleanChoice::ignoreShiftInShortcuts(m_cleanAllAction);
     QAction *rescanAll = groupMenu->addAction(tr("Re&scan the selected groups"), this,
                                               [this] { m_monitor->rescanGroups(selectedGroups()); });
     rescanAll->setShortcuts({QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R), QKeySequence(Qt::Key_F5)});
@@ -449,11 +453,9 @@ void MainWindow::createActions()
     toolbar->addSeparator();
     addButton(rescan, tr("Rescan"));
     addButton(m_cleanAction, tr("Clean"));
-    addButton(m_cleanAllAction, tr("Clean the selected groups"));
     toolbar->addSeparator();
+    addButton(m_cleanAllAction, tr("Clean the selected groups"));
     addButton(freeSpace, tr("Free space"));
-    addButton(types, tr("Cleaner types"));
-    addButton(settings, tr("Settings"));
 #ifndef Q_OS_MACOS
     // The usage panel sits at the right edge; on macOS the filter field takes that place.
     auto *usageSpacer = new QWidget(toolbar);
@@ -1057,7 +1059,9 @@ void MainWindow::cleanFolder(const QUuid &id)
     if (!f || m_monitor->state(id) != Monitor::State::Idle)
         return;
     const ScanResult r = m_monitor->result(id);
+    const CleanMethod method = CleanChoice::method(m_store->settings());
     if (m_confirmCleaning) {
+        const bool deletes = CleanChoice::forFolder(method, f->path) == CleanMethod::Delete;
         const QString path = QDir::toNativeSeparators(f->path);
         const QString what =
             f->kind == Folder::Kind::Matching
@@ -1066,9 +1070,12 @@ void MainWindow::cleanFolder(const QUuid &id)
                 ? tr("everything inside %1").arg(path)
                 : tr("everything inside %1 except %2")
                       .arg(path, ExcludeDialog::summary(f->excludes));
-        QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(f->name),
-                        tr("Delete %1, about %2? This cannot be undone.")
-                            .arg(what, Format::bytes(r.cleanableBytes)),
+        const QString question =
+            deletes ? tr("Delete %1, about %2? This cannot be undone.")
+                          .arg(what, Format::bytes(r.cleanableBytes))
+                    : tr("Move %1, about %2, to the %3?")
+                          .arg(what, Format::bytes(r.cleanableBytes), CleanChoice::trashName());
+        QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(f->name), question,
                         QMessageBox::Cancel, this);
         QPushButton *details = box.addButton(tr("Show items…"), QMessageBox::HelpRole);
         // A Matching folder can also be cleaned one subfolder at a time.
@@ -1076,7 +1083,7 @@ void MainWindow::cleanFolder(const QUuid &id)
             f->kind == Folder::Kind::Matching
                 ? box.addButton(tr("Clean subfolders…"), QMessageBox::ActionRole)
                 : nullptr;
-        QPushButton *ok = box.addButton(tr("Delete"), QMessageBox::DestructiveRole);
+        QPushButton *ok = CleanChoice::addConfirmButton(box, deletes);
         box.setDefaultButton(QMessageBox::Cancel);
         // The Show items button would close the box; reopen it afterwards.
         for (;;) {
@@ -1092,7 +1099,7 @@ void MainWindow::cleanFolder(const QUuid &id)
         if (box.clickedButton() != ok)
             return;
     }
-    m_monitor->clean(id);
+    m_monitor->clean(id, method);
 }
 
 void MainWindow::showCleanDetails(const QUuid &id, CleanDetailsDialog::Tab tab)
@@ -1112,31 +1119,45 @@ void MainWindow::cleanAll(bool everything)
         everything ? m_monitor->cleanableBytes() : m_monitor->groupCleanableBytes(groups);
     if (cleanable <= 0)
         return;
+    const CleanMethod method = CleanChoice::method(m_store->settings());
     if (m_confirmCleaning) {
         QStringList lines;
+        bool trashes = false;  // a folder that cleaning deletes in, though it moves to the trash
         for (const Folder &f : everything ? m_store->folders() : m_store->foldersIn(groups)) {
             const ScanResult r = m_monitor->result(f.id);
-            if (r.cleanableBytes > 0)
-                lines.append(QStringLiteral("• %1: %2").arg(f.name, Format::bytes(r.cleanableBytes)));
+            if (r.cleanableBytes <= 0)
+                continue;
+            lines.append(QStringLiteral("• %1: %2").arg(f.name, Format::bytes(r.cleanableBytes)));
+            trashes = trashes || CleanChoice::forFolder(method, f.path) != method;
         }
+        const bool deletes = method == CleanMethod::Delete;
         const QString question =
-            everything
-                ? tr("Delete what every folder's types match, about %1? This cannot be undone.")
-                : tr("Delete what the types of the selected groups' folders match, about %1? "
-                     "This cannot be undone.");
+            deletes ? everything
+                          ? tr("Delete what every folder's types match, about %1? This cannot be "
+                               "undone.")
+                          : tr("Delete what the types of the selected groups' folders match, about "
+                               "%1? This cannot be undone.")
+            : everything
+                ? tr("Move what every folder's types match, about %1, to the %2?")
+                : tr("Move what the types of the selected groups' folders match, about %1, to "
+                     "the %2?");
         QMessageBox box(QMessageBox::Warning, everything ? tr("Clean everything") : tr("Clean groups"),
-                        question.arg(Format::bytes(cleanable)), QMessageBox::Cancel, this);
+                        deletes ? question.arg(Format::bytes(cleanable))
+                                : question.arg(Format::bytes(cleanable), CleanChoice::trashName()),
+                        QMessageBox::Cancel, this);
+        if (trashes)
+            lines.append(tr("What is already in a trash is deleted for good."));
         box.setInformativeText(lines.join(QLatin1Char('\n')));
-        QPushButton *ok = box.addButton(tr("Delete"), QMessageBox::DestructiveRole);
+        QPushButton *ok = CleanChoice::addConfirmButton(box, deletes);
         box.setDefaultButton(QMessageBox::Cancel);
         box.exec();
         if (box.clickedButton() != ok)
             return;
     }
     if (everything)
-        m_monitor->cleanAll();
+        m_monitor->cleanAll(method);
     else
-        m_monitor->cleanGroups(groups);
+        m_monitor->cleanGroups(groups, method);
 }
 
 void MainWindow::addGroup()
@@ -1294,7 +1315,7 @@ void MainWindow::onCleaned(const QUuid &id, const CleanResult &result)
 {
     const Folder *f = m_store->folder(id);
     const QString name = f ? f->name : QString();
-    showMessage(tr("Freed %1 in %2.").arg(Format::bytes(result.freedBytes), name));
+    showMessage(CleanChoice::doneMessage(result, name));
     if (result.failures.isEmpty())
         return;
     QStringList shown = result.failures.mid(0, MaxFailuresShown);
@@ -1302,9 +1323,9 @@ void MainWindow::onCleaned(const QUuid &id, const CleanResult &result)
         shown.append(tr("…and %n more.", nullptr,
                         static_cast<int>(result.failures.size() - MaxFailuresShown)));
     QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(name),
-                    tr("%n item(s) could not be deleted.", nullptr,
-                       static_cast<int>(result.failures.size())),
-                    QMessageBox::Ok, isVisible() ? this : nullptr);
+                    CleanChoice::failureText(result), QMessageBox::Ok,
+                    isVisible() ? this : nullptr);
+    box.setInformativeText(CleanChoice::failureHint(result));
     box.setDetailedText(shown.join(QLatin1Char('\n')));
     box.exec();
 }
