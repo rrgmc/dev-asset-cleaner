@@ -91,10 +91,13 @@ keep fixes to those parts in step with it.
 - `cpack -C Release` in a macOS build folder makes the DragNDrop disk image. The install step
   signs the bundle after macdeployqt. `DAC_CODESIGN_IDENTITY` picks the identity: `-` (ad hoc,
   the default) or a Developer ID, which adds the hardened runtime and timestamp.
-- `scripts/release-macos.sh <version> [--upload]` makes the notarised disk image, with the
-  keychain's Developer ID certificate and the `dev-asset-cleaner` notarytool profile, or the
-  `DAC_NOTARY_*` API key variables in CI. That job holds secrets: keep its actions pinned to
-  commits.
+- `scripts/release-macos.sh <version> [--upload]` (bash) makes the notarised disk image, the
+  same way as the sibling project dreame-control: the Developer ID Application identity found
+  in the keychain (or `DAC_SIGN_IDENTITY`), and the shared notarytool keychain profile
+  `mac-apps`, made from an App Store Connect API key (or the `DAC_NOTARY_KEY*` variables, which
+  CI sets). It reads notarytool's JSON status, prints Apple's log on failure and retries
+  stapling. The release job builds a temporary keychain from the `release` environment's secrets and exports
+  those variables. That job holds secrets: keep its actions pinned to commits.
 - `.github/workflows/build.yml` builds and tests on every push. `release.yml` runs when a
   tag `vX.Y.Z` is pushed: it publishes the GitHub release (unless it exists), builds with that
   version (`-DDAC_VERSION`) and attaches the Windows setup and the macOS disk image. The tag

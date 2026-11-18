@@ -4,6 +4,16 @@ name: release
 # then attaches the Windows setup and the notarised macOS disk image to the release. To redo it
 # for an existing tag, run the workflow by hand with the tag: the code comes from the tag, this
 # file from the branch it runs on.
+#
+# The macOS app is signed with a Developer ID certificate and notarised by Apple, with these
+# secrets of the "release" environment:
+#   MACOS_CERTIFICATE_P12       the "Developer ID Application" certificate and its private key,
+#                               exported from Keychain Access as .p12 and base64-encoded
+#   MACOS_CERTIFICATE_PASSWORD  the password of the .p12 file
+#   NOTARY_API_KEY              an App Store Connect API key: the contents of its .p8 file
+#   NOTARY_API_KEY_ID           that key's ID
+#   NOTARY_API_ISSUER           that key's issuer ID
+# Without them the macOS job fails rather than attach a disk image that is not notarised.
 on:
   push:
     tags:
@@ -105,8 +115,7 @@ jobs:
   macos-dmg:
     needs: release
     runs-on: macos-latest
-    # The signing secrets live in this environment. It only admits v* tags and master, and it
-    # can require an approval before each run.
+    # The signing secrets live in this environment, which should admit only v* tags and master.
     environment: release
 
     steps:
@@ -121,47 +130,54 @@ jobs:
       - name: Install Ninja
         run: brew install ninja
 
-      # A keychain of its own, with a random password, holds the Developer ID certificate for
-      # this job only. The last step deletes it.
-      - name: Import the signing certificate
+      # A keychain made for this job holds the certificate. Its password protects a file that is
+      # deleted when the job ends, so a random one serves. The partition list lets codesign use
+      # the key without a dialog. The API key is written to a file, because notarytool reads it
+      # from one.
+      - name: Signing keychain and notary key
         env:
           CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-        run: |
-          keychain="$RUNNER_TEMP/signing.keychain-db"
-          keychain_password=$(openssl rand -base64 24)
-          echo "::add-mask::$keychain_password"
-          umask 077
-          echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
-          security create-keychain -p "$keychain_password" "$keychain"
-          security set-keychain-settings -lut 3600 "$keychain"
-          security unlock-keychain -p "$keychain_password" "$keychain"
-          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" \
-            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          rm "$RUNNER_TEMP/certificate.p12"
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
-            -k "$keychain_password" "$keychain" > /dev/null
-          security list-keychains -d user -s "$keychain" \
-            $(security list-keychains -d user | tr -d '"')
-
-      # Checks the key before the build, and shows notarytool's error if Apple refuses it.
-      - name: Write and check the notarisation key
-        env:
           NOTARY_API_KEY: ${{ secrets.NOTARY_API_KEY }}
           NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
           NOTARY_API_ISSUER: ${{ secrets.NOTARY_API_ISSUER }}
         run: |
+          for v in CERTIFICATE_P12 CERTIFICATE_PASSWORD NOTARY_API_KEY NOTARY_API_KEY_ID NOTARY_API_ISSUER; do
+            if [ -z "${!v}" ]; then
+              echo "::error::The macOS signing secrets MACOS_CERTIFICATE_P12, MACOS_CERTIFICATE_PASSWORD, NOTARY_API_KEY, NOTARY_API_KEY_ID and NOTARY_API_ISSUER are not all set."
+              exit 1
+            fi
+          done
           umask 077
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(openssl rand -hex 24)"
+          printf '%s' "$CERTIFICATE_P12" | base64 -d > "$RUNNER_TEMP/signing.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/signing.p12" -k "$keychain" -f pkcs12 -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/signing.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" > /dev/null
+          # Each keychain already on the search list becomes one argument.
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity="$(security find-identity -v -p codesigning "$keychain" \
+            | sed -n 's/.*"\(Developer ID Application: .*\)"$/\1/p' | head -1)"
+          if [ -z "$identity" ]; then
+            echo "::error::MACOS_CERTIFICATE_P12 holds no Developer ID Application certificate with its private key."
+            exit 1
+          fi
           printf '%s\n' "$NOTARY_API_KEY" > "$RUNNER_TEMP/notary.p8"
-          xcrun notarytool history --key "$RUNNER_TEMP/notary.p8" \
-            --key-id "$NOTARY_API_KEY_ID" --issuer "$NOTARY_API_ISSUER" > /dev/null
+          {
+            echo "DAC_SIGN_IDENTITY=$identity"
+            echo "DAC_NOTARY_KEY=$RUNNER_TEMP/notary.p8"
+            echo "DAC_NOTARY_KEY_ID=$NOTARY_API_KEY_ID"
+            echo "DAC_NOTARY_ISSUER=$NOTARY_API_ISSUER"
+          } >> "$GITHUB_ENV"
 
       - name: Build, test, sign and notarise
-        env:
-          DAC_NOTARY_KEY: ${{ runner.temp }}/notary.p8
-          DAC_NOTARY_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
-          DAC_NOTARY_ISSUER: ${{ secrets.NOTARY_API_ISSUER }}
-        run: sh scripts/release-macos.sh "${{ needs.release.outputs.version }}"
+        run: bash scripts/release-macos.sh "${{ needs.release.outputs.version }}"
 
       - name: Attach disk image to the release
         env:
@@ -173,5 +189,5 @@ jobs:
       - name: Remove the signing keychain and key
         if: always()
         run: |
-          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
-          rm -f "$RUNNER_TEMP/notary.p8"
+          rm -f "$RUNNER_TEMP/signing.p12" "$RUNNER_TEMP/notary.p8"
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true

@@ -215,24 +215,25 @@ Security and click **Open Anyway** next to the message about the app.
 
 ### Notarised macOS disk image
 
-`scripts/release-macos.sh` builds a disk image that macOS opens without a warning. It runs on a
-Mac with a "Developer ID Application" certificate in the keychain. It builds and tests the app
-in `build/macos-release`, signs the app and the disk image with the certificate, has Apple
-notarise the disk image, and staples the notarisation ticket to it.
+`scripts/release-macos.sh` builds a disk image that macOS opens without a warning. It builds and
+tests the app in `build/macos-release`, signs the app and the disk image with your Developer ID,
+has Apple notarise the disk image, and staples the notarisation ticket to it.
 
-Store your notarisation credentials once. The password is an app-specific password from
-[account.apple.com](https://account.apple.com):
+Locally it uses the "Developer ID Application" identity in your keychain and the notarytool
+keychain profile `mac-apps`. Make that profile once, from an App Store Connect API key:
 
 ```sh
-xcrun notarytool store-credentials dev-asset-cleaner --apple-id <Apple ID> --team-id <team ID>
+xcrun notarytool store-credentials mac-apps --key AuthKey_<key id>.p8 --key-id <key id> --issuer <issuer id>
 ```
 
 Then build the disk image. `--upload` attaches it to the GitHub release `v<version>` and replaces
 the one there:
 
 ```sh
-sh scripts/release-macos.sh 1.0.0 --upload
+bash scripts/release-macos.sh 1.0.0 --upload
 ```
+
+The header of the script lists the environment variables that override these defaults.
 
 ### Releases
 
@@ -243,14 +244,15 @@ secrets of the `release` environment:
 
 | Secret | Value |
 |---|---|
-| `MACOS_CERTIFICATE_P12` | The Developer ID Application certificate and its private key, exported as a `.p12` file, in base64 |
-| `MACOS_CERTIFICATE_PASSWORD` | The password of the `.p12` file |
-| `NOTARY_API_KEY` | The contents of an App Store Connect API key file (`AuthKey_<key ID>.p8`) |
-| `NOTARY_API_KEY_ID` | The key ID of that API key |
-| `NOTARY_API_ISSUER` | The issuer ID shown above the list of API keys in App Store Connect |
+| `MACOS_CERTIFICATE_P12` | The "Developer ID Application" certificate with its private key, exported from Keychain Access as a `.p12` file, base64-encoded: `base64 -i cert.p12 \| pbcopy` |
+| `MACOS_CERTIFICATE_PASSWORD` | The password given to the `.p12` file on export |
+| `NOTARY_API_KEY` | An App Store Connect API key: the contents of its `.p8` file. Make one at appstoreconnect.apple.com under Users and Access > Integrations > Team Keys, with the Developer role. |
+| `NOTARY_API_KEY_ID` | That key's ID |
+| `NOTARY_API_ISSUER` | The issuer ID shown above the list of keys |
 
-The environment should accept only `v*` tags and `master`, so other branches cannot use the
-secrets.
+Without these secrets the macOS job fails rather than attach a disk image that is not
+notarised. Limit the environment's deployment branches and tags to `v*` tags and `master`, so
+other branches cannot use the secrets.
 
 To change the Qt version, edit the version at the top of both setup scripts and in
 `CMakePresets.json`.

@@ -73,10 +73,10 @@ tasks:
       - cpack -C {{.CONFIG}}
 
   release-macos:
-    desc: 'Make the notarised macOS disk image (task release-macos -- <version> [--upload])'
+    desc: 'Make the notarised macOS disk image (task release-macos -- <version> [--upload]); needs the notarytool profile mac-apps'
     platforms: [darwin]
     cmds:
-      - sh scripts/release-macos.sh {{.CLI_ARGS}}
+      - bash scripts/release-macos.sh {{.CLI_ARGS}}
 
   icons:
     desc: Regenerate resources/dev-asset-cleaner.ico and dev-asset-cleaner.icns from src/ui/Icons.cpp
