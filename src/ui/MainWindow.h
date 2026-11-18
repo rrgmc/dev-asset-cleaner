@@ -50,6 +50,8 @@ private:
     void saveGeometryState();
 
     void addFolder();
+    // Searches a folder for the types that apply to it; `id` picks a monitored folder.
+    void detectTypes(const QUuid &id = {});
     // Appends the tool caches found on this computer.
     void fillAddMenu(QMenu *menu);
     void editFolder(const QUuid &id);

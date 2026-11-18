@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include "AppInfo.h"
+#include "DetectDialog.h"
 #include "FolderDialog.h"
 #include "FolderListView.h"
 #include "FolderModel.h"
@@ -142,6 +143,9 @@ void MainWindow::createActions()
     QMenu *file = menuBar()->addMenu(tr("&File"));
     QAction *add = file->addAction(tr("&Add folder…"), this, &MainWindow::addFolder);
     add->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_N));
+    QAction *detect = file->addAction(tr("&Detect types in a folder…"), this,
+                                      [this] { detectTypes(); });
+    detect->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_D));
     QMenu *addKnown = file->addMenu(tr("Add a &tool cache"));
     connect(addKnown, &QMenu::aboutToShow, this, [this, addKnown] {
         addKnown->clear();
@@ -241,6 +245,7 @@ void MainWindow::createActions()
         connect(menu, &QMenu::aboutToShow, this, [this, menu] {
             menu->clear();
             menu->addAction(tr("Folder…"), this, &MainWindow::addFolder);
+            menu->addAction(tr("Detect types in a folder…"), this, [this] { detectTypes(); });
             menu->addSeparator();
             fillAddMenu(menu);
         });
@@ -603,6 +608,28 @@ void MainWindow::addFolder()
     m_list->setFocus();
 }
 
+void MainWindow::detectTypes(const QUuid &id)
+{
+    const Folder *existing = m_store->folder(id);
+    DetectDialog dialog(m_store, existing ? existing->path : QString(), this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    const QString path = dialog.path();
+    const QStringList types = dialog.typeIds();
+    // The dialog's folder may be another one already in the list.
+    if (const Folder *f = m_store->folderWithPath(path)) {
+        Folder updated = *f;
+        updated.typeIds = types;
+        m_store->updateFolder(updated);
+        m_monitor->rescan(updated.id);
+        m_filter->clear();
+        m_list->selectId(updated.id);
+        showMessage(tr("%1 now uses the detected types.").arg(updated.name));
+        return;
+    }
+    addFolderPath(path, types);
+}
+
 void MainWindow::addFolderPath(const QString &path, const QStringList &typeIds, const QString &name)
 {
     const QString clean = QDir::cleanPath(QDir::fromNativeSeparators(path));
@@ -812,6 +839,7 @@ void MainWindow::showContextMenu(const QUuid &id, const QPoint &globalPos)
         ->setEnabled(idle && r.valid && r.cleanableBytes > 0);
     menu.addAction(tr("&Rescan"), this, [this, id] { m_monitor->rescan(id); })->setEnabled(idle);
     menu.addAction(tr("&Show what cleaning deletes…"), this, &MainWindow::showItems);
+    menu.addAction(tr("&Detect types…"), this, [this, id] { detectTypes(id); });
     menu.addSeparator();
     menu.addAction(tr("&Open folder"), this, [this, id] { openFolder(id); });
     menu.addAction(tr("Copy &path"), this, [this, id] { copyPath(id); });

@@ -32,6 +32,24 @@ struct CleanResult
     QStringList failures;  // one line per path that could not be deleted
 };
 
+// What one cleaner type would delete in a folder.
+struct Detection
+{
+    QString typeId;
+    qint64 bytes = 0;
+    QList<ScanItem> items;  // largest first
+};
+
+// The cleaner types found in a folder.
+struct DetectResult
+{
+    bool valid = false;         // false when canceled
+    qint64 totalBytes = 0;      // everything below the folder
+    qint64 cleanableBytes = 0;  // what all detected types together would delete
+    QList<Detection> detections;  // largest first; only types that found something
+    QString error;
+};
+
 // Returns true to stop the work early.
 using CancelCheck = std::function<bool()>;
 
@@ -41,6 +59,15 @@ namespace Scanner {
 // size and never followed. Sizes are file sizes, not the disk blocks they use.
 ScanResult scan(const QString &path, const QList<CleanerType> &types,
                 const CancelCheck &canceled = {});
+
+// Finds which of `types` apply to `path`: walks it once with the rules of every rule-based type
+// and reports, per type, what it would delete. A folder that several types match counts for
+// each of them. "Folder contents" types are left out, since they match any folder.
+//
+// Today detection covers the rule-based types, which are programming build outputs and
+// dependencies. Other kinds of detection can add their findings to DetectResult later.
+DetectResult detect(const QString &path, const QList<CleanerType> &types,
+                    const CancelCheck &canceled = {});
 
 // The size of a file, or of a folder and everything below it.
 qint64 treeSize(const QString &path, const CancelCheck &canceled = {});

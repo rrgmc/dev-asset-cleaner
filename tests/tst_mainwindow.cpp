@@ -1,5 +1,6 @@
 #include "clean/Monitor.h"
 #include "model/Store.h"
+#include "ui/DetectDialog.h"
 #include "ui/FolderDelegate.h"
 #include "ui/FolderListView.h"
 #include "ui/FolderModel.h"
@@ -9,7 +10,9 @@
 #include <QDir>
 #include <QFile>
 #include <QLineEdit>
+#include <QPushButton>
 #include <QTemporaryDir>
+#include <QTreeWidget>
 #include <QTest>
 
 namespace {
@@ -124,6 +127,24 @@ private slots:
         QCOMPARE(m_list->model()->rowCount(), 1);
         filter->clear();
         QCOMPARE(m_list->model()->rowCount(), 2);
+    }
+
+    void detectDialogSuggestsTypes()
+    {
+        writeFile(m_dir->filePath(QStringLiteral("projects/web/package.json")), 5);
+        writeFile(m_dir->filePath(QStringLiteral("projects/web/node_modules/x.js")), 300);
+        DetectDialog dialog(m_store.get(), m_dir->filePath(QStringLiteral("projects")));
+        dialog.show();
+        auto *tree = dialog.findChild<QTreeWidget *>();
+        QVERIFY(tree);
+        // Rust, JavaScript, and "All programming languages", which starts unchecked.
+        QTRY_COMPARE(tree->topLevelItemCount(), 3);
+        QCOMPARE(dialog.typeIds(), (QStringList{QStringLiteral("rust"), QStringLiteral("node")}));
+        const QList<QTreeWidgetItem *> rust = tree->findItems(QStringLiteral("Rust"), Qt::MatchExactly);
+        QCOMPARE(rust.size(), 1);
+        rust.first()->setCheckState(0, Qt::Unchecked);
+        QCOMPARE(dialog.typeIds(), QStringList{QStringLiteral("node")});
+        QCOMPARE(dialog.path(), QDir::cleanPath(m_dir->filePath(QStringLiteral("projects"))));
     }
 
 private:

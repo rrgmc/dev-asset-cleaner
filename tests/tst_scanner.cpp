@@ -176,6 +176,48 @@ private slots:
 #endif
     }
 
+    void detectFindsEachType()
+    {
+        writeFile(path("deep/er/cmake/build/obj.o"), 9);  // CMake's build next to CMakeLists.txt
+        const DetectResult r = Scanner::detect(m_dir->path(), BuiltInTypes::all());
+        QVERIFY(r.valid);
+        QVERIFY(r.error.isEmpty());
+        QStringList ids;
+        for (const Detection &d : r.detections)
+            ids.append(d.typeId);
+        // Largest first; "Folder contents" is never detected.
+        QCOMPARE(ids, (QStringList{QStringLiteral("all-languages"), QStringLiteral("rust"),
+                                   QStringLiteral("node"), QStringLiteral("cpp")}));
+        QCOMPARE(r.detections.at(1).bytes, 1500);
+        QCOMPARE(r.detections.at(2).bytes, 370);
+        QCOMPARE(r.detections.at(3).bytes, 209);
+        QCOMPARE(r.detections.at(3).items.size(), 2);
+        QCOMPARE(r.cleanableBytes, 1500 + 370 + 209);
+        QCOMPARE(r.totalBytes, 10 + 20 + 1500 + 40 + 5 + 300 + 70 + 3 + 200 + 9);
+    }
+
+    void detectCountsSharedFoldersForEachType()
+    {
+        // A build folder next to both CMakeLists.txt and build.gradle.
+        writeFile(path("both/CMakeLists.txt"), 1);
+        writeFile(path("both/build.gradle"), 1);
+        writeFile(path("both/build/out"), 50);
+        const DetectResult r = Scanner::detect(path("both"), {builtIn("cpp"), builtIn("jvm")});
+        QCOMPARE(r.detections.size(), 2);
+        QCOMPARE(r.detections.at(0).bytes, 50);
+        QCOMPARE(r.detections.at(1).bytes, 50);
+        QCOMPARE(r.cleanableBytes, 50);
+    }
+
+    void detectNothing()
+    {
+        const DetectResult r = Scanner::detect(path("other"), BuiltInTypes::all());
+        QVERIFY(r.valid);
+        QVERIFY(r.detections.isEmpty());
+        QCOMPARE(r.totalBytes, 40);
+        QVERIFY(!Scanner::detect(path("missing"), BuiltInTypes::all()).error.isEmpty());
+    }
+
     void unsafeFolders()
     {
         const QList<CleanerType> contents{builtIn("contents")};

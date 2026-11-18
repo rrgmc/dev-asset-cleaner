@@ -46,67 +46,96 @@ bool isLink(const QFileInfo &info)
 
 struct CompiledRule
 {
+    int type = 0;  // index into the types the rules came from
     QRegularExpression pattern;
     QList<QRegularExpression> markers;
 };
 
+QList<CompiledRule> compile(const QList<CleanerType> &types)
+{
+    QList<CompiledRule> rules;
+    for (int i = 0; i < types.size(); ++i) {
+        for (const CleanRule &r : types.at(i).rules) {
+            CompiledRule c{i, wildcard(r.pattern), {}};
+            for (const QString &m : r.markers)
+                c.markers.append(wildcard(m));
+            rules.append(c);
+        }
+    }
+    return rules;
+}
+
+// Walks a folder tree and reports every folder that a rule matches. A matched folder is sized
+// as a whole and not searched further.
 class Walker
 {
 public:
-    Walker(QList<CompiledRule> rules, const CancelCheck &canceled)
+    // Called with the folder, its size and the indexes of the types whose rules matched it.
+    using OnMatch = std::function<void(const QString &path, qint64 bytes, const QList<int> &types)>;
+
+    Walker(QList<CompiledRule> rules, const CancelCheck &canceled, OnMatch onMatch)
         : m_rules(std::move(rules))
         , m_canceled(canceled)
+        , m_onMatch(std::move(onMatch))
     {
     }
 
-    void walk(const QString &dirPath, ScanResult &result)
+    // Returns the size of everything below dirPath.
+    qint64 walk(const QString &dirPath)
     {
         if (m_canceled && m_canceled())
-            return;
+            return 0;
         const QFileInfoList entries = QDir(dirPath).entryInfoList(AllEntries, QDir::NoSort);
         QStringList names;
         names.reserve(entries.size());
         for (const QFileInfo &e : entries)
             names.append(e.fileName());
 
+        qint64 total = 0;
         for (const QFileInfo &e : entries) {
             if (isLink(e))
                 continue;
             if (!e.isDir()) {
-                result.totalBytes += e.size();
+                total += e.size();
                 continue;
             }
-            if (matches(e.fileName(), names)) {
+            const QList<int> types = matches(e.fileName(), names);
+            if (!types.isEmpty()) {
                 const qint64 bytes = Scanner::treeSize(e.filePath(), m_canceled);
-                result.items.append(ScanItem{e.filePath(), bytes});
-                result.totalBytes += bytes;
-                result.cleanableBytes += bytes;
+                m_onMatch(e.filePath(), bytes, types);
+                total += bytes;
             } else {
-                walk(e.filePath(), result);
+                total += walk(e.filePath());
             }
         }
+        return total;
     }
 
 private:
-    bool matches(const QString &name, const QStringList &siblings) const
+    QList<int> matches(const QString &name, const QStringList &siblings) const
     {
+        QList<int> types;
         for (const CompiledRule &rule : m_rules) {
-            if (!anchoredMatch(rule.pattern, name))
+            if (types.contains(rule.type) || !anchoredMatch(rule.pattern, name))
                 continue;
-            if (rule.markers.isEmpty())
-                return true;
-            for (const QRegularExpression &marker : rule.markers) {
+            bool found = rule.markers.isEmpty();
+            for (qsizetype m = 0; m < rule.markers.size() && !found; ++m) {
                 for (const QString &sibling : siblings) {
-                    if (anchoredMatch(marker, sibling))
-                        return true;
+                    if (anchoredMatch(rule.markers.at(m), sibling)) {
+                        found = true;
+                        break;
+                    }
                 }
             }
+            if (found)
+                types.append(rule.type);
         }
-        return false;
+        return types;
     }
 
     QList<CompiledRule> m_rules;
     const CancelCheck &m_canceled;
+    OnMatch m_onMatch;
 };
 
 bool hasContentsType(const QList<CleanerType> &types)
@@ -150,16 +179,12 @@ ScanResult scan(const QString &path, const QList<CleanerType> &types, const Canc
         }
         result.cleanableBytes = result.totalBytes;
     } else {
-        QList<CompiledRule> rules;
-        for (const CleanerType &t : types) {
-            for (const CleanRule &r : t.rules) {
-                CompiledRule c{wildcard(r.pattern), {}};
-                for (const QString &m : r.markers)
-                    c.markers.append(wildcard(m));
-                rules.append(c);
-            }
-        }
-        Walker(rules, canceled).walk(path, result);
+        Walker walker(compile(types), canceled,
+                      [&result](const QString &item, qint64 bytes, const QList<int> &) {
+                          result.items.append(ScanItem{item, bytes});
+                          result.cleanableBytes += bytes;
+                      });
+        result.totalBytes = walker.walk(path);
     }
 
     std::sort(result.items.begin(), result.items.end(),
@@ -187,6 +212,50 @@ qint64 treeSize(const QString &path, const CancelCheck &canceled)
             total += e.size();
     }
     return total;
+}
+
+DetectResult detect(const QString &path, const QList<CleanerType> &types,
+                    const CancelCheck &canceled)
+{
+    DetectResult result;
+    const QFileInfo root(path);
+    if (!root.exists() || !root.isDir()) {
+        result.error = tr("The folder does not exist.");
+        result.valid = true;
+        return result;
+    }
+    // Only types that pick out parts of a folder can be detected; "Folder contents" would
+    // match anything.
+    QList<CleanerType> candidates;
+    for (const CleanerType &t : types) {
+        if (t.mode == CleanerType::Mode::Rules && !t.rules.isEmpty())
+            candidates.append(t);
+    }
+    QList<Detection> found(candidates.size());
+    for (qsizetype i = 0; i < candidates.size(); ++i)
+        found[i].typeId = candidates.at(i).id;
+
+    Walker walker(compile(candidates), canceled,
+                  [&found, &result](const QString &item, qint64 bytes, const QList<int> &matched) {
+                      for (int t : matched) {
+                          found[t].items.append(ScanItem{item, bytes});
+                          found[t].bytes += bytes;
+                      }
+                      result.cleanableBytes += bytes;
+                  });
+    result.totalBytes = walker.walk(path);
+
+    for (Detection &d : found) {
+        if (d.items.isEmpty())
+            continue;
+        std::sort(d.items.begin(), d.items.end(),
+                  [](const ScanItem &a, const ScanItem &b) { return a.bytes > b.bytes; });
+        result.detections.append(d);
+    }
+    std::sort(result.detections.begin(), result.detections.end(),
+              [](const Detection &a, const Detection &b) { return a.bytes > b.bytes; });
+    result.valid = !(canceled && canceled());
+    return result;
 }
 
 QString unsafeReason(const QString &path, const QList<CleanerType> &types)

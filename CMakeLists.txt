@@ -46,6 +46,7 @@ target_link_libraries(dac_core PUBLIC Qt6::Gui Qt6::Concurrent)
 # Widgets, shared by the app and the GUI test.
 qt_add_library(dac_ui STATIC
     src/ui/AppInfo.h
+    src/ui/DetectDialog.h src/ui/DetectDialog.cpp
     src/ui/FolderDelegate.h src/ui/FolderDelegate.cpp
     src/ui/FolderDialog.h src/ui/FolderDialog.cpp
     src/ui/FolderListView.h src/ui/FolderListView.cpp

@@ -33,11 +33,13 @@ keep fixes to those parts in step with it.
 
 - `src/model`: `CleanerType` (rules and the built-in types), `Folder`, `Store` (JSON
   persistence, debounced atomic saves). No widgets.
-- `src/clean`: `Scanner` (walks a folder, finds what its types match, deletes it),
+- `src/clean`: `Scanner` (walks a folder, finds what its types match, deletes it; `detect`
+  reports per type what each rule-based type would delete, for `DetectDialog`),
   `Monitor` (runs scans and cleans on a thread pool, keeps results, free space and warnings),
   `KnownCaches` (tool caches offered in the Add menu).
 - `src/ui`: widgets. `MainWindow` holds one `FolderListView` over a `FolderModel`, painted by
-  `FolderDelegate`. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
+  `FolderDelegate`. `DetectDialog` runs `Scanner::detect` in the background and returns the
+  chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
 - `src/platform`: `SingleInstance`.
 - Libraries: `dac_core` (model and cleaning) and `dac_ui` (widgets), so tests can link them.
   `main.cpp` and `src/platform` belong only to the `dev-asset-cleaner` executable.
