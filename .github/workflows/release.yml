@@ -1,0 +1,193 @@
+name: release
+
+# Pushing a tag vX.Y.Z (or X.Y.Z) publishes a GitHub release for it, builds and tests dev-asset-cleaner,
+# then attaches the Windows setup and the notarised macOS disk image to the release. To redo it
+# for an existing tag, run the workflow by hand with the tag: the code comes from the tag, this
+# file from the branch it runs on.
+#
+# The macOS app is signed with a Developer ID certificate and notarised by Apple, with these
+# secrets of the "release" environment:
+#   MACOS_CERTIFICATE_P12       the "Developer ID Application" certificate and its private key,
+#                               exported from Keychain Access as .p12 and base64-encoded
+#   MACOS_CERTIFICATE_PASSWORD  the password of the .p12 file
+#   NOTARY_API_KEY              an App Store Connect API key: the contents of its .p8 file
+#   NOTARY_API_KEY_ID           that key's ID
+#   NOTARY_API_ISSUER           that key's issuer ID
+# Without them the macOS job fails rather than attach a disk image that is not notarised.
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+      - '[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build, for example v1.0.0
+        required: true
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+permissions:
+  contents: write
+
+jobs:
+  # Checks the tag and publishes its release, unless one exists already. A release published
+  # with the workflow's token does not start other workflows, so this does not run twice.
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Version from tag
+        id: version
+        run: |
+          tag="$TAG"
+          version="${tag#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag '$tag' is not vX.Y.Z or X.Y.Z"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG exists already"
+          else
+            gh release create "$TAG" --verify-tag --generate-notes \
+              --title "Dev Asset Cleaner ${{ steps.version.outputs.version }}"
+          fi
+
+  windows-setup:
+    needs: release
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install Ninja and NSIS
+        run: choco install ninja nsis -y --no-progress
+
+      - name: MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Cache Qt
+        uses: actions/cache@v4
+        with:
+          path: .qt
+          key: qt-${{ runner.os }}-${{ hashFiles('scripts/setup.*') }}
+
+      - name: Download Qt
+        run: pwsh -File scripts/setup.ps1
+
+      - name: Configure
+        # bash, not PowerShell: PowerShell splits -DDAC_VERSION=1.0.0 at the first dot.
+        shell: bash
+        run: cmake --preset windows-ninja "-DDAC_VERSION=${{ needs.release.outputs.version }}"
+
+      - name: Build
+        run: cmake --build --preset windows-ninja
+
+      - name: Test
+        run: ctest --preset windows-ninja
+
+      - name: Build setup
+        working-directory: build/windows-ninja
+        run: cpack -C Release
+
+      - name: Attach setup to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$TAG" \
+            "build/windows-ninja/dev-asset-cleaner-${{ needs.release.outputs.version }}-win64.exe" --clobber
+
+  macos-dmg:
+    needs: release
+    runs-on: macos-latest
+    # The signing secrets live in this environment, which should admit only v* tags and master.
+    environment: release
+
+    steps:
+      # Pinned to commits: this job holds the signing secrets.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      # A keychain made for this job holds the certificate. Its password protects a file that is
+      # deleted when the job ends, so a random one serves. The partition list lets codesign use
+      # the key without a dialog. The API key is written to a file, because notarytool reads it
+      # from one.
+      - name: Signing keychain and notary key
+        env:
+          CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          NOTARY_API_KEY: ${{ secrets.NOTARY_API_KEY }}
+          NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_API_ISSUER: ${{ secrets.NOTARY_API_ISSUER }}
+        run: |
+          for v in CERTIFICATE_P12 CERTIFICATE_PASSWORD NOTARY_API_KEY NOTARY_API_KEY_ID NOTARY_API_ISSUER; do
+            if [ -z "${!v}" ]; then
+              echo "::error::The macOS signing secrets MACOS_CERTIFICATE_P12, MACOS_CERTIFICATE_PASSWORD, NOTARY_API_KEY, NOTARY_API_KEY_ID and NOTARY_API_ISSUER are not all set."
+              exit 1
+            fi
+          done
+          umask 077
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(openssl rand -hex 24)"
+          printf '%s' "$CERTIFICATE_P12" | base64 -d > "$RUNNER_TEMP/signing.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/signing.p12" -k "$keychain" -f pkcs12 -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/signing.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" > /dev/null
+          # Each keychain already on the search list becomes one argument.
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity="$(security find-identity -v -p codesigning "$keychain" \
+            | sed -n 's/.*"\(Developer ID Application: .*\)"$/\1/p' | head -1)"
+          if [ -z "$identity" ]; then
+            echo "::error::MACOS_CERTIFICATE_P12 holds no Developer ID Application certificate with its private key."
+            exit 1
+          fi
+          printf '%s\n' "$NOTARY_API_KEY" > "$RUNNER_TEMP/notary.p8"
+          {
+            echo "DAC_SIGN_IDENTITY=$identity"
+            echo "DAC_NOTARY_KEY=$RUNNER_TEMP/notary.p8"
+            echo "DAC_NOTARY_KEY_ID=$NOTARY_API_KEY_ID"
+            echo "DAC_NOTARY_ISSUER=$NOTARY_API_ISSUER"
+          } >> "$GITHUB_ENV"
+
+      - name: Build, test, sign and notarise
+        run: bash scripts/release-macos.sh "${{ needs.release.outputs.version }}"
+
+      - name: Attach disk image to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$TAG" \
+            "build/macos-release/dev-asset-cleaner-${{ needs.release.outputs.version }}-macos.dmg" --clobber
+
+      - name: Remove the signing keychain and key
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/signing.p12" "$RUNNER_TEMP/notary.p8"
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
