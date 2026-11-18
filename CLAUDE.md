@@ -47,9 +47,12 @@ work in the main checkout's working tree, which stays on `master`.
 
 - `src/model`: `CleanerType` (rules and the built-in types), `Group`, `Folder`, `Store` (JSON
   persistence, debounced atomic saves). No widgets. A folder's `Folder::Kind` says what
-  cleaning deletes: everything in it (`Whole`) or what its types match (`Matching`). More
-  kinds may come; each needs an entry in `Folder::kinds`, its id, name and description, and
-  its scan in `Monitor`'s `folderScan`. An unknown kind id loads as `Matching`, which deletes
+  cleaning deletes: everything in it (`Whole`) or what its types match (`Matching`). The kind
+  is chosen when the folder is added (Add > Folder, or Add > Matching folders through
+  `DetectDialog`) and never changes afterwards: `FolderDialog` only shows it, and
+  `DetectDialog` refuses a Whole folder's path. More kinds may come; each needs an entry in
+  `Folder::kinds`, its id, name and description, its scan in `Monitor`'s `folderScan`, and a
+  way to add it. An unknown kind id loads as `Matching`, which deletes
   nothing without types. Every folder belongs to a group
   (`Folder::groupId`); the file nests folders in their groups (version 2), and a version 1
   file's top-level folders load into a "Default" group. Version 3 added the kind; before it,

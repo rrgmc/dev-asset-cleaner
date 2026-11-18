@@ -226,29 +226,55 @@ private slots:
         QCOMPARE(dialog.typeIds(), QStringList{QStringLiteral("node")});
     }
 
-    void folderDialogPicksTheKind()
+    void folderDialogKeepsTheKind()
     {
         Folder f;
         f.path = QDir::cleanPath(m_dir->filePath(QStringLiteral("projects")));
         f.kind = Folder::Kind::Matching;
         f.typeIds = {QStringLiteral("rust")};
         f.excludes = {QStringLiteral("app")};
-        FolderDialog dialog(m_store.get(), f);
-        auto *kind = dialog.findChild<QComboBox *>();
-        auto *types = dialog.findChild<QListWidget *>();
-        QVERIFY(kind && types);
-        // Every entry in the list is a type that matches folders; the kind is chosen apart.
-        QCOMPARE(types->count(), BuiltInTypes::all().size());
-        QVERIFY(types->isEnabled());
-        QCOMPARE(dialog.folder().typeIds, QStringList{QStringLiteral("rust")});
+        {
+            FolderDialog dialog(m_store.get(), f);
+            // Nothing offers another kind.
+            QVERIFY(!dialog.findChild<QComboBox *>());
+            auto *types = dialog.findChild<QListWidget *>();
+            QVERIFY(types);
+            QCOMPARE(types->count(), BuiltInTypes::all().size());
+            const Folder edited = dialog.folder();
+            QCOMPARE(edited.kind, Folder::Kind::Matching);
+            QCOMPARE(edited.typeIds, QStringList{QStringLiteral("rust")});
+            QCOMPARE(edited.excludes, QStringList{QStringLiteral("app")});
+        }
 
-        kind->setCurrentIndex(kind->findData(static_cast<int>(Folder::Kind::Whole)));
-        QVERIFY(!types->isEnabled());
+        // A whole folder has no types to pick, and keeps its excluded folders too.
+        f.kind = Folder::Kind::Whole;
+        f.typeIds.clear();
+        FolderDialog dialog(m_store.get(), f);
+        QVERIFY(!dialog.findChild<QComboBox *>());
+        QVERIFY(!dialog.findChild<QListWidget *>());
         const Folder whole = dialog.folder();
         QCOMPARE(whole.kind, Folder::Kind::Whole);
         QVERIFY(whole.typeIds.isEmpty());
-        // Both kinds keep their excluded folders.
         QCOMPARE(whole.excludes, QStringList{QStringLiteral("app")});
+        auto *buttons = dialog.findChild<QDialogButtonBox *>();
+        QVERIFY(buttons && buttons->button(QDialogButtonBox::Ok)->isEnabled());
+    }
+
+    void detectDialogLeavesWholeFoldersAlone()
+    {
+        writeFile(m_dir->filePath(QStringLiteral("projects/web/package.json")), 5);
+        const QString projects = QDir::cleanPath(m_dir->filePath(QStringLiteral("projects")));
+        m_window->addFolderPath(projects, Folder::Kind::Whole);
+        DetectDialog dialog(m_store.get(), projects);
+        dialog.show();
+        auto *tree = dialog.findChild<QTreeWidget *>();
+        QVERIFY(tree);
+        QTRY_VERIFY(tree->topLevelItemCount() > 0);
+        QVERIFY(!dialog.typeIds().isEmpty());
+        // Types were found, but the whole folder cannot take them.
+        auto *buttons = dialog.findChild<QDialogButtonBox *>();
+        QVERIFY(buttons);
+        QVERIFY(!buttons->button(QDialogButtonBox::Ok)->isEnabled());
     }
 
     void systemFoldersDialogSkipsListedFolders()
