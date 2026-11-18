@@ -3,6 +3,7 @@
 #include "CleanDetailsDialog.h"
 #include "SortOrder.h"
 #include "clean/Scanner.h"
+#include "model/Alert.h"
 #include "model/Folder.h"
 
 #include <QElapsedTimer>
@@ -128,7 +129,9 @@ private:
     QElapsedTimer m_deactivated;
     bool m_lostToTaskbar = false;
     bool m_confirmCleaning = true;
-    QString m_lastWarning;  // the warning the tray last notified about
+    // The levels of the two warnings at the last tray update, so that only a rise notifies.
+    Severity m_lastCleanLevel = Severity::None;
+    Severity m_lastFreeLevel = Severity::None;
     QList<QAction *> m_folderActions;  // need a selected folder
     QList<QAction *> m_groupActions;   // need a selected group
     QList<QAction *> m_addActions;     // need a group to add to

@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "Scanner.h"
+#include "model/Alert.h"
 #include "model/Folder.h"
 
 #include <QFuture>
@@ -23,16 +24,23 @@ struct Volume
     QString name;
     qint64 freeBytes = 0;
     qint64 totalBytes = 0;
-    bool low = false;  // below the free space warning
+    // The free space warning's level. None when the disk is left out of the warning.
+    Severity level = Severity::None;
+
+    bool low() const { return level != Severity::None; }
 };
 
 struct Warnings
 {
-    QList<Volume> lowVolumes;
+    QList<Volume> lowVolumes;   // the disks with a free space level
     QList<QUuid> largeFolders;  // more to clean than their own warning size
-    bool totalTooLarge = false;  // more to clean in all folders than the settings' limit
+    // The space to clean in all folders against the settings' levels. A folder over its own
+    // limit makes it at least Low.
+    Severity cleanLevel = Severity::None;
+    // The most serious level of the disks.
+    Severity freeLevel = Severity::None;
 
-    bool any() const { return !lowVolumes.isEmpty() || !largeFolders.isEmpty() || totalTooLarge; }
+    bool any() const { return cleanLevel != Severity::None || freeLevel != Severity::None; }
 };
 
 // Scans and cleans the store's folders in the background and keeps the results. Rescans every

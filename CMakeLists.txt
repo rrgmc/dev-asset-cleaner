@@ -25,6 +25,7 @@ qt_standard_project_setup()
 
 # Model, scanning and cleaning, shared by the app and the tests.
 qt_add_library(dac_core STATIC
+    src/model/Alert.h src/model/Alert.cpp
     src/model/CleanerType.h src/model/CleanerType.cpp
     src/model/Folder.h src/model/Folder.cpp
     src/model/Group.h

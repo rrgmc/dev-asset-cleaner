@@ -92,10 +92,21 @@ work in the main checkout's working tree, which stays on `master`.
   platform (`Icons::sortGroupsIcon`, `sortFoldersIcon`).
   `UsagePanel`, in the toolbar right of the buttons, paints the space to clean in every
   folder, plus in the selected groups when they are not all of them. `FreeSpaceDialog` (the Free space
-  button) lists every disk that holds a monitored folder; the status bar shows only the disks
-  below `Settings::freeWarnBytes`, in the warning colour. The UI shows only the
+  button) lists every disk that holds a monitored folder, with a check box that takes the disk
+  out of the free space warning (`Settings::freeAlertOffDisks`); the status bar shows only the
+  disks at a warning level, in the most serious level's colour. The UI shows only the
   space to clean, never a folder's total size; the warning limits (`Folder::warnBytes`,
-  `Settings::totalWarnBytes`) also measure the space to clean.
+  `Settings::cleanAlert`) also measure the space to clean.
+- Warnings: `Settings::cleanAlert` (space to clean in all folders) and `freeAlert` (free space
+  per disk) are each an `Alert` (`src/model/Alert.h`): three limits for the levels Low, Medium
+  and High (0 turns a level off) and the level from which the tray notifies. Clean levels
+  grow, free space levels shrink; `SettingsDialog` refuses levels out of order.
+  `Monitor::warnings` gives each warning's level; a folder over its own `warnBytes` makes the
+  clean level at least Low. The tray icon shows the clean level as a circle at the bottom left
+  and the free level as a triangle at the bottom right, in `Icons::severityColor`. A
+  notification comes when a level rises to the notify level or above while the window is
+  hidden. A file without `cleanAlert` or `freeAlert` keeps a single old limit
+  (`totalWarnBytes`, `freeWarnBytes`) as the Low level, except the old free space default.
 - `src/platform`: `SingleInstance`.
 - Libraries: `dac_core` (model and cleaning) and `dac_ui` (widgets), so tests can link them.
   `main.cpp` and `src/platform` belong only to the `dev-asset-cleaner` executable.
@@ -129,7 +140,7 @@ work in the main checkout's working tree, which stays on `master`.
 - On macOS, Qt's `Ctrl` is the Command key and `Meta` is Control.
 - The app icon is drawn in `src/ui/Icons.cpp`. `resources/dev-asset-cleaner.ico` and `.icns`
   are generated from it by the `make_icons` target and committed; regenerate them after
-  changing the drawing. The tray's warning icon adds a badge to the same drawing.
+  changing the drawing. The tray's warning icon adds up to two badges to the same drawing.
 - `docs/screenshot-macos.png` and `docs/screenshot.png` (Windows) are drawn with made-up data
   by the `make_screenshot` target, through `Monitor::setResultForDisplay` and
   `setVolumesForDisplay`. Each is made on its own platform. The tool captures the real window

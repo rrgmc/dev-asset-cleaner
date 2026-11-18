@@ -218,15 +218,18 @@ Warnings Monitor::warnings() const
 {
     Warnings w;
     for (const Volume &v : m_volumes) {
-        if (v.low)
+        if (v.low())
             w.lowVolumes.append(v);
+        w.freeLevel = std::max(w.freeLevel, v.level);
     }
     for (const Folder &f : m_store->folders()) {
         if (f.warnBytes > 0 && result(f.id).cleanableBytes > f.warnBytes)
             w.largeFolders.append(f.id);
     }
-    const qint64 limit = m_store->settings().totalWarnBytes;
-    w.totalTooLarge = limit > 0 && cleanableBytes() > limit;
+    w.cleanLevel =
+        m_store->settings().cleanAlert.levelFor(cleanableBytes(), Alert::Direction::Above);
+    if (!w.largeFolders.isEmpty())
+        w.cleanLevel = std::max(w.cleanLevel, Severity::Low);
     return w;
 }
 
@@ -269,12 +272,17 @@ void Monitor::syncFolders()
 
 void Monitor::updateVolumes()
 {
-    const qint64 warnBelow = m_store->settings().freeWarnBytes;
+    const Settings &settings = m_store->settings();
+    const auto levelOf = [&settings](const Volume &v) {
+        return settings.freeAlertOn(v.rootPath)
+                   ? settings.freeAlert.levelFor(v.freeBytes, Alert::Direction::Below)
+                   : Severity::None;
+    };
     QList<Volume> volumes;
     if (m_fixedVolumes) {
         volumes = *m_fixedVolumes;
         for (Volume &v : volumes)
-            v.low = warnBelow > 0 && v.freeBytes < warnBelow;
+            v.level = levelOf(v);
     }
     for (const Folder &f : m_fixedVolumes ? QList<Folder>{} : m_store->folders()) {
         QStorageInfo info(f.path);
@@ -291,7 +299,7 @@ void Monitor::updateVolumes()
             v.name = QDir::toNativeSeparators(root);
         v.freeBytes = info.bytesAvailable();
         v.totalBytes = info.bytesTotal();
-        v.low = warnBelow > 0 && v.freeBytes < warnBelow;
+        v.level = levelOf(v);
         volumes.append(v);
     }
     const bool changed =
@@ -299,7 +307,7 @@ void Monitor::updateVolumes()
         || !std::equal(volumes.cbegin(), volumes.cend(), m_volumes.cbegin(),
                        [](const Volume &a, const Volume &b) {
                            return a.rootPath == b.rootPath && a.freeBytes == b.freeBytes
-                                  && a.low == b.low;
+                                  && a.level == b.level;
                        });
     m_volumes = volumes;
     if (changed)

@@ -1,6 +1,7 @@
 #include "Icons.h"
 
 #include <QGuiApplication>
+#include <QHash>
 #include <QIconEngine>
 #include <QPalette>
 #include <QPainter>
@@ -97,26 +98,105 @@ QPainterPath sparkle(qreal s, qreal grow = 0)
     return sparklePath(s, 0.86, 0.11, 0.1 + grow);
 }
 
-void paintBadge(QPainter &painter, qreal s)
+// The dark outline and mark of the badges, which stand apart from the coral bin even at 16
+// pixels.
+const QColor BadgeInk(0x1B, 0x1B, 0x1B);
+
+QColor badgeMarkColor(Severity severity)
 {
-    const QPointF center(0.76 * s, 0.76 * s);
-    const qreal r = 0.24 * s;
-    // Yellow with dark ink, which stands apart from the coral bin even at 16 pixels.
-    const QColor ink(0x1B, 0x1B, 0x1B);
-    painter.setBrush(QColor(0xFF, 0xC3, 0x00));
-    painter.setPen(QPen(ink, qMax(1.0, 0.04 * s)));
+    return severity == Severity::High ? QColor(Qt::white) : BadgeInk;
+}
+
+// The space to clean: a circle with an exclamation mark, at the bottom left.
+void paintCleanBadge(QPainter &painter, qreal s, Severity severity)
+{
+    const QPointF center(0.25 * s, 0.75 * s);
+    const qreal r = 0.23 * s;
+    painter.setBrush(severityColor(severity));
+    painter.setPen(QPen(BadgeInk, qMax(1.0, 0.04 * s)));
     painter.drawEllipse(center, r, r);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(ink);
+    painter.setBrush(badgeMarkColor(severity));
     const qreal w = 0.07 * s;
-    painter.drawRoundedRect(QRectF(center.x() - w / 2, center.y() - 0.15 * s, w, 0.17 * s),
+    painter.drawRoundedRect(QRectF(center.x() - w / 2, center.y() - 0.14 * s, w, 0.16 * s),
                             w / 2, w / 2);
-    painter.drawEllipse(QPointF(center.x(), center.y() + 0.1 * s), w * 0.6, w * 0.6);
+    painter.drawEllipse(QPointF(center.x(), center.y() + 0.095 * s), w * 0.6, w * 0.6);
+}
+
+// Free space: a triangle pointing down, for space running out, at the bottom right.
+void paintFreeBadge(QPainter &painter, qreal s, Severity severity)
+{
+    QPainterPath triangle;
+    triangle.moveTo(0.52 * s, 0.53 * s);
+    triangle.lineTo(0.99 * s, 0.53 * s);
+    triangle.lineTo(0.755 * s, 0.98 * s);
+    triangle.closeSubpath();
+    QPen pen(BadgeInk, qMax(1.0, 0.04 * s));
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter.setBrush(severityColor(severity));
+    painter.setPen(pen);
+    painter.drawPath(triangle);
+    // A bar across the top, as on a gauge that reads empty.
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(badgeMarkColor(severity));
+    const qreal w = 0.06 * s;
+    painter.drawRoundedRect(QRectF(0.64 * s, 0.61 * s, 0.23 * s, w), w / 2, w / 2);
 }
 
 } // namespace
 
-QImage render(int size, bool mono, bool warning)
+QColor severityColor(Severity severity)
+{
+    switch (severity) {
+    case Severity::None:
+        break;
+    case Severity::Low:
+        return QColor(0xFF, 0xC3, 0x00);
+    case Severity::Medium:
+        return QColor(0xFF, 0x7A, 0x00);
+    case Severity::High:
+        return QColor(0xE0, 0x20, 0x1B);
+    }
+    return {};
+}
+
+QColor severityTextColor(Severity severity)
+{
+    switch (severity) {
+    case Severity::None:
+        break;
+    case Severity::Low:
+        return QColor(0x9A, 0x6B, 0x00);
+    case Severity::Medium:
+        return QColor(0xD9, 0x48, 0x0F);
+    case Severity::High:
+        return QColor(0xC0, 0x10, 0x1A);
+    }
+    return {};
+}
+
+QPixmap badge(Severity severity, bool freeSpace, int size)
+{
+    const qreal ratio = qGuiApp ? qGuiApp->devicePixelRatio() : 1.0;
+    const int pixels = qRound(size * ratio);
+    QImage image(pixels, pixels, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing);
+    // The badges fill a quarter of the icon: draw that quarter at the full size.
+    painter.scale(2, 2);
+    painter.translate(freeSpace ? -0.5 * pixels : 0, -0.5 * pixels);
+    if (freeSpace)
+        paintFreeBadge(painter, pixels, severity);
+    else
+        paintCleanBadge(painter, pixels, severity);
+    painter.end();
+    QPixmap pixmap = QPixmap::fromImage(image);
+    pixmap.setDevicePixelRatio(ratio);
+    return pixmap;
+}
+
+QImage render(int size, bool mono, Severity clean, Severity free)
 {
     QImage image(size, size, QImage::Format_ARGB32_Premultiplied);
     image.fill(Qt::transparent);
@@ -136,19 +216,21 @@ QImage render(int size, bool mono, bool warning)
         painter.fillPath(bracesPath(size), QColor(0xFF, 0xF4, 0xEC));
         painter.fillPath(sparkle(size), QColor(0xF4, 0xC9, 0x5D));
     }
-    if (warning)
-        paintBadge(painter, size);
+    if (clean != Severity::None)
+        paintCleanBadge(painter, size, clean);
+    if (free != Severity::None)
+        paintFreeBadge(painter, size, free);
     painter.end();
     return image;
 }
 
 namespace {
 
-QIcon build(bool mono, bool warning = false)
+QIcon build(bool mono, Severity clean = Severity::None, Severity free = Severity::None)
 {
     QIcon icon;
     for (int size : {16, 22, 32, 44, 64, 128, 256})
-        icon.addPixmap(QPixmap::fromImage(render(size, mono, warning)));
+        icon.addPixmap(QPixmap::fromImage(render(size, mono, clean, free)));
     return icon;
 }
 } // namespace
@@ -159,12 +241,16 @@ QIcon appIcon()
     return icon;
 }
 
-QIcon trayIcon(bool warning)
+QIcon trayIcon(Severity clean, Severity free)
 {
-    if (warning) {
-        // In colour: a template image would lose the badge's colour.
-        static const QIcon icon = build(false, true);
-        return icon;
+    if (clean != Severity::None || free != Severity::None) {
+        // In colour: a template image would lose the badges' colours.
+        static QHash<int, QIcon> icons;
+        const int key = static_cast<int>(clean) * 4 + static_cast<int>(free);
+        auto it = icons.find(key);
+        if (it == icons.end())
+            it = icons.insert(key, build(false, clean, free));
+        return *it;
     }
 #ifdef Q_OS_MACOS
     static const QIcon icon = [] {

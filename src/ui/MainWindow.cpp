@@ -233,13 +233,9 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     statusBar()->addPermanentWidget(m_busy);
     statusBar()->addPermanentWidget(m_summary);
     // Disks below the free space warning get an item of their own, shown only while any is low.
+    // Its colour is the most serious level among the disks.
     m_lowSpace->setObjectName(QStringLiteral("lowSpace"));
-    {
-        QPalette palette = m_lowSpace->palette();
-        palette.setColor(QPalette::WindowText, QColor(0xD9, 0x48, 0x0F));
-        m_lowSpace->setPalette(palette);
-    }
-    m_lowSpace->setToolTip(tr("Free space is below the warning in the settings"));
+    m_lowSpace->setToolTip(tr("Free space is low, by the levels in the settings"));
     m_lowSpace->hide();
     statusBar()->addPermanentWidget(m_lowSpace);
 
@@ -549,9 +545,16 @@ void MainWindow::createTray()
 void MainWindow::updateSummary()
 {
     QStringList low;
+    Severity worst = Severity::None;
     for (const Volume &v : m_monitor->volumes()) {
-        if (v.low)
+        if (v.low())
             low.append(tr("%1 free on %2").arg(Format::bytes(v.freeBytes), v.name));
+        worst = (std::max)(worst, v.level);  // parenthesised for windows.h's max macro
+    }
+    if (worst != Severity::None) {
+        QPalette palette = m_lowSpace->palette();
+        palette.setColor(QPalette::WindowText, Icons::severityTextColor(worst));
+        m_lowSpace->setPalette(palette);
     }
     const QList<QUuid> groups = selectedGroups();
     const qint64 groupCleanable = m_monitor->groupCleanableBytes(groups);
@@ -651,14 +654,19 @@ void MainWindow::updateTray()
     tipLines.append(tr("Folders: %1 to clean").arg(Format::bytes(m_monitor->cleanableBytes())));
     for (const Volume &v : m_monitor->volumes()) {
         const QString line = tr("%1%2 free of %3 on %4")
-                                 .arg(v.low ? warningMark() : QString(), Format::bytes(v.freeBytes),
+                                 .arg(v.low() ? warningMark() : QString(), Format::bytes(v.freeBytes),
                                       Format::bytes(v.totalBytes), v.name);
         m_trayMenu->addAction(line)->setEnabled(false);
-        tipLines.append(line);
+        tipLines.append(v.low() ? line + tr(" (%1)").arg(severityName(v.level)) : line);
     }
-    if (warnings.totalTooLarge)
-        tipLines.append(warningMark() + tr("The folders have more than %1 to clean.")
-                                            .arg(Format::bytes(m_store->settings().totalWarnBytes)));
+    const Alert &cleanAlert = m_store->settings().cleanAlert;
+    const Severity totalLevel =
+        cleanAlert.levelFor(m_monitor->cleanableBytes(), Alert::Direction::Above);
+    if (totalLevel != Severity::None)
+        tipLines.append(warningMark()
+                        + tr("The folders have more than %1 to clean (%2).")
+                              .arg(Format::bytes(cleanAlert.limits[static_cast<int>(totalLevel) - 1]),
+                                   severityName(totalLevel)));
     for (const QUuid &id : warnings.largeFolders) {
         if (const Folder *f = m_store->folder(id))
             tipLines.append(warningMark() + tr("%1 has more than %2 to clean.")
@@ -680,20 +688,32 @@ void MainWindow::updateTray()
     m_trayMenu->addSeparator();
     m_trayMenu->addAction(tr("Quit"), qApp, &QApplication::quit);
 
-    m_tray->setIcon(Icons::trayIcon(warnings.any()));
+    m_tray->setIcon(Icons::trayIcon(warnings.cleanLevel, warnings.freeLevel));
     m_tray->setToolTip(tipLines.join(QLatin1Char('\n')));
 
-    // Notify once when a new warning appears, while the window is hidden.
-    QString warningText;
-    if (!warnings.lowVolumes.isEmpty())
-        warningText = tr("Free space is low on %1.").arg(warnings.lowVolumes.first().name);
-    else if (warnings.totalTooLarge || !warnings.largeFolders.isEmpty())
-        warningText = tr("Monitored folders are over their size limit.");
-    if (warningText != m_lastWarning) {
-        m_lastWarning = warningText;
-        if (!warningText.isEmpty() && !isVisible())
-            m_tray->showWarning(AppInfo::displayName(), warningText);
+    // Each warning notifies when its level rises to the settings' notify level or above, while
+    // the window is hidden.
+    const Settings &settings = m_store->settings();
+    const auto rises = [](Severity level, Severity last, Severity from) {
+        return from != Severity::None && level >= from && level > last;
+    };
+    QStringList notes;
+    if (rises(warnings.freeLevel, m_lastFreeLevel, settings.freeAlert.notifyFrom)) {
+        const auto worst = std::max_element(
+            warnings.lowVolumes.cbegin(), warnings.lowVolumes.cend(),
+            [](const Volume &a, const Volume &b) { return a.level < b.level; });
+        notes.append(tr("Free space is low on %1 (%2).")
+                         .arg(worst->name, severityName(warnings.freeLevel)));
     }
+    if (rises(warnings.cleanLevel, m_lastCleanLevel, settings.cleanAlert.notifyFrom)) {
+        notes.append(tr("%1 can be cleaned in the monitored folders (%2).")
+                         .arg(Format::bytes(m_monitor->cleanableBytes()),
+                              severityName(warnings.cleanLevel)));
+    }
+    m_lastFreeLevel = warnings.freeLevel;
+    m_lastCleanLevel = warnings.cleanLevel;
+    if (!notes.isEmpty() && !isVisible())
+        m_tray->showWarning(AppInfo::displayName(), notes.join(QLatin1Char('\n')));
 }
 
 QUuid MainWindow::currentId() const
