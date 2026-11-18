@@ -1,314 +1,101 @@
 # Dev Asset Cleaner
 
-A small desktop app that watches how much space your folders use and cleans them with one
-click. It knows what programming tools leave behind, such as Rust's `target` folders,
-`node_modules` and CMake build folders, and deletes only those. It runs on Windows and macOS.
+Programming tools leave large folders behind: Rust's `target`, `node_modules`, CMake build
+folders, package caches. Dev Asset Cleaner keeps track of how much space they take and frees it
+with one click. It runs on Windows and macOS.
 
 ![The Dev Asset Cleaner window on macOS](docs/screenshot-macos.png)
 
 ![The Dev Asset Cleaner window on Windows](docs/screenshot.png)
 
-- Folders are kept in **groups**, listed on the left of the window. The app starts with one
-  group, **Default**, which can be renamed or deleted like any other. Select several groups
-  (Ctrl-click or Shift-click) to see their folders together. Deleting a group stops monitoring
-  its folders; nothing on disk is deleted.
-- The folder list shows the folders of the selected groups. Each row shows how much cleaning
-  would free, with a **Clean** button. The toolbar cleans the
-  selected folder or all folders of the selected groups; **Tools > Clean everything** cleans
-  every group.
-- Drag a folder onto a group to move it there, or use **Move to group** in its menu. A folder
-  path can be in one group only. Folders dropped from Explorer or Finder onto a group are added
-  to that group.
-- The two sort buttons in the toolbar, or **View > Sort groups by** and **View > Sort folders
-  by**, order each list by name, by the space to clean (the most first), or in your own order.
-  Change your own order by dragging a group or folder to another place in its list, or with
-  **Move up** and **Move down**. A folder moves only among the folders of its group, and a
-  group moves only while it is the only one selected. The app
-  remembers the choice, and your own order comes back when you choose it again. While a list
-  is sorted by name or space, dragging within it and its Move commands are off.
-- Each folder has a **kind**, which says what cleaning deletes (see below): everything in it,
-  or only the subfolders that its **cleaner types** match. The **Add** button offers both:
-  **Folder** adds a whole folder, and **Matching folders** searches a folder for the cleaner
-  types that apply to it, with what each would free, and adds it with the ones you keep. The
-  kind is chosen when the folder is added and does not change.
-- Each folder, of either kind, can **exclude** some of its first-level subfolders, such as a
-  project you are working on. Cleaning never searches or deletes them. Set them in the folder's
-  settings or with **Exclude** when adding matching folders.
-- The **Add** button also adds a group, and offers the tool caches it finds on this computer,
-  such as the Go module cache, the npm cache, Gradle's caches and Xcode's derived data.
-- **Add system folders** lists the operating system's trash and cache folders that are safe to
-  empty: the Recycle Bin of each drive, Windows error reports, crash dumps and graphics shader
-  caches on Windows; the Trash, the trash of other volumes and crash reports on macOS; the
-  freedesktop.org trash and thumbnails elsewhere. Browser caches and broad cache folders such
-  as `~/Library/Caches` are left out, since running programs use them. Reading the macOS Trash
-  needs Full Disk Access.
-- Folders are scanned in the background when added, and again every 30 minutes.
-- The **Free space** button lists the free space on each disk that holds a monitored folder.
-  The status bar shows only the disks below the free space limit in Settings, in orange.
-- Closing the window keeps the app in the system tray (the menu bar on macOS, where it also
-  leaves the Dock until the window shows again). The tray menu and the tooltip show what
-  cleaning each folder would free and the free space on their disks. With several groups, the tray menu has a
-  submenu for each group.
-- The tray icon gets a yellow badge when free space is low, when a folder has more to
-  clean than its own limit, or when all folders together have more to clean than a total
-  limit. Set the limits in Settings
-  and in each folder.
-- Settings can **start the app when you sign in** (on macOS 13 and later). It then starts
-  hidden in the tray or menu bar.
+## Install
 
-## Kinds of folder
+Download the latest version from the
+[releases page](https://github.com/rrgmc/dev-asset-cleaner/releases):
 
-- **Whole folder.** Cleaning deletes everything inside the folder, but keeps the folder
-  itself. Use it for caches and download folders. Tool caches and system folders are added as
-  this kind. For safety, it refuses to clean a drive's root, your home folder or a folder above
-  it.
-- **Matching folders.** Cleaning deletes only the subfolders, at any depth, that the folder's
-  cleaner types match. Use it for a folder of projects. Without types, it deletes nothing.
+- **Windows:** run `dev-asset-cleaner-<version>-win64.exe`. On its last page, the setup can
+  start the app when you sign in.
+- **macOS:** open `dev-asset-cleaner-<version>-macos.dmg` and drag the app onto the
+  Applications folder.
 
-Both kinds skip the folder's excluded subfolders. To change a folder's kind, remove it and add
-it again.
+## Getting started
 
-**Folder > Show what cleaning deletes** opens a window with two tabs. **Items** lists what the
-folder's last scan found to delete, largest first. **Subfolders**, only for a Matching folder,
-lists its first-level subfolders, laid out like the main list. **Folder > Clean subfolders**,
-or the **Clean subfolders** button in the box that confirms cleaning a Matching folder, opens
-the same window on the Subfolders tab. Each row shows what cleaning would free in that
-subfolder and has its own Clean button, so you can clean a folder of projects one project at a
-time. The list is sorted by space to clean, largest first, or by name. Excluded subfolders are
-listed, but cannot be cleaned.
+1. Click **Add** and choose what to watch:
+   - **Matching folders** for a folder of projects. The app searches it, shows which kinds of
+     project it found and how much each would free, and adds the folder with the ones you keep.
+   - **Folder** for a folder whose whole contents can go, such as a cache or a downloads folder.
+   - A tool cache it found on this computer, such as the npm, Go or Gradle cache.
+   - **Add system folders** for the Recycle Bin or Trash and other system caches that are safe
+     to empty.
+2. Each row shows how much space cleaning would free. Click its **Clean** button.
+3. The app asks first, and **Show items** lists what will be removed.
 
-## Cleaner types
+Close the window and the app keeps running in the system tray (the menu bar on macOS). It
+scans your folders again every 30 minutes.
 
-A cleaner type is a set of rules for a Matching folder. A rule has a folder name and,
-optionally, the names of files that must sit next to that folder. For example, Rust's rule is `target` next to `Cargo.toml`, so a `target` folder in a project
-without `Cargo.toml` is left alone. Both names take the wildcards `*` and `?`, and ignore case.
-A matched folder is deleted as a whole and not searched further.
+## What gets deleted
 
-The built-in types:
+Each folder is one of two kinds, chosen when you add it:
 
-| Type | Deletes |
-|---|---|
-| Rust | `target` next to `Cargo.toml` |
-| C and C++ (CMake) | `build`, `build-*`, `cmake-build-*` and `out` next to `CMakeLists.txt` |
-| JavaScript and TypeScript | `node_modules`, `.next`, `.nuxt`, `.turbo`, `.parcel-cache` and `.svelte-kit` next to `package.json` |
-| Python | `__pycache__`, `.pytest_cache`, `.mypy_cache` and `.ruff_cache` anywhere; `.tox`, `.venv` and `venv` next to a Python project file |
-| Java and Kotlin (Gradle, Maven) | `build` and `.gradle` next to a Gradle build file; `target` next to `pom.xml` |
-| .NET | `bin` and `obj` next to a `.csproj`, `.fsproj` or `.vbproj` file |
-| Go | `bin` next to `go.mod` |
-| Swift | `.build` next to `Package.swift` |
-| Dart and Flutter | `build` and `.dart_tool` next to `pubspec.yaml` |
-| Zig | `.zig-cache`, `zig-cache` and `zig-out` next to `build.zig` |
-| Haskell | `.stack-work` next to `stack.yaml`; `dist-newstyle` next to a Cabal file |
-| All programming languages | Every rule above |
+- **Matching folders:** only the build outputs and dependencies of the projects inside are
+  deleted, at any depth. Your source files stay.
+- **Whole folder:** everything inside is deleted, but the folder itself stays. The app refuses
+  to do this to a drive's root, your home folder or any folder above it.
 
-To find which types fit a folder, use **Add > Matching folders** (**File > Add matching
-folders**), or **Detect types** in a matching folder's right-click menu. It walks the folder
-once with the rules of every type, and lists each type that found something, with its folders
-and their size. "All programming languages" is listed too, but starts unchecked, since it
-repeats the others. It skips the excluded subfolders, and it cannot give types to a folder that
-is in the list as a whole folder. Detection covers programming build outputs and dependencies
-today; other kinds of findings can be added to it later.
+To keep a project untouched, add it to the folder's **excludes** in the folder's settings.
 
-Add your own types in **Tools > Cleaner types**. A built-in type cannot be changed, but
-**Duplicate** makes an editable copy of it. A folder can use several types at once, for example
-Rust and JavaScript.
+Cleaning moves items to the trash (the Recycle Bin on Windows), so you can undo it. The space
+is freed when you empty the trash. To delete at once, hold Shift when you click Clean, or turn
+on **Cleaning deletes directly** in Settings.
 
-Read-only files and folders, such as those in Go's module cache, are made writable and then
-deleted. Symbolic links are deleted, never followed.
+### Recognised projects
 
-Before it cleans anything, the app asks, and **Show items** lists what will go. Cleaning scans
-the folder again first, so it cleans what is there at that moment.
+- Rust
+- C and C++ (CMake)
+- JavaScript and TypeScript
+- Python
+- Java and Kotlin (Gradle, Maven)
+- .NET
+- Go
+- Swift
+- Dart and Flutter
+- Zig
+- Haskell
 
-Cleaning moves what it finds to the trash (the Recycle Bin on Windows), so it can be undone.
-The space is freed only when the trash is emptied. To delete directly instead, hold Shift while
-you click a Clean button or menu item. To always delete directly, turn on **Cleaning deletes
-directly** in Settings. Items that are already in a trash, such as a Recycle Bin added through
-**Add system folders**, are always deleted. An item that cannot be moved to the trash, for
-example on a network drive, is left in place and reported. The keyboard shortcuts always
-use the setting, because Shift is part of Ctrl+Shift+K.
+Only build outputs and dependencies inside a project are deleted, so a `target` folder outside
+a Rust project is left alone. To add your own rules, open **Tools > Cleaner types**.
 
-## Keyboard
+## More features
 
-| Key | Effect |
-|---|---|
-| Type | Filter by name or path |
-| Enter | Edit the selected folder, or rename the selected group |
-| Ctrl+K | Clean the selected folder |
-| Ctrl+Shift+K | Clean all folders of the selected groups |
-| Ctrl+R | Rescan the selected folder |
-| Ctrl+Shift+R, F5 | Rescan all folders of the selected groups |
-| Ctrl+I | Show what cleaning the folder deletes |
-| Ctrl+U | Clean the subfolders of a Matching folder one at a time |
-| Ctrl+O | Open the folder in Explorer or Finder |
-| Ctrl+C | Copy the folder's path |
-| Ctrl+Shift+Up, Ctrl+Shift+Down | Move the folder up or down (manual order only) |
-| Ctrl+Alt+Up, Ctrl+Alt+Down | Move the group up or down (manual order only) |
-| Ctrl+N | Add a whole folder to the current group |
-| Ctrl+Shift+N | Add a group |
-| Ctrl+D | Add matching folders: search a folder for its cleaner types |
-| F2 | Edit the folder |
-| Delete | Stop monitoring the folder (nothing is deleted) |
-| Esc | Clear the filter, or hide the window |
+- **Groups.** Sort your folders into groups, shown on the left. Drag a folder onto a group to
+  move it. Select several groups to see and clean their folders together.
+- **One project at a time.** **Folder > Clean subfolders** lists each project in a folder of
+  projects, with its own Clean button.
+- **Warnings.** The tray icon gets a yellow badge when a disk runs low on space, or when a
+  folder has more to clean than a limit you set. **Free space** shows the free space on each
+  disk.
+- **Sorting.** Order groups and folders by name, by space to clean, or in your own order by
+  dragging them.
+- **Start when I sign in.** Turn it on in Settings (macOS 13 and later). The app then starts
+  hidden in the tray.
 
-On macOS, Ctrl in this table means ⌘.
+## Good to know
 
-You can also drag folders from Explorer or Finder onto the list to add them.
+- On macOS, reading the Trash needs Full Disk Access.
+- An item that cannot be moved to the trash, for example on a network drive, is left in place
+  and reported.
+- Your groups, folders and settings are saved in
+  `%APPDATA%\dev-asset-cleaner\dev-asset-cleaner\dev-asset-cleaner.json` on Windows and
+  `~/Library/Application Support/dev-asset-cleaner/dev-asset-cleaner/dev-asset-cleaner.json`
+  on macOS.
 
-## Data
+## Building from source
 
-Groups and their folders, custom types and settings are saved as JSON:
+See [BUILDING.md](BUILDING.md).
 
-- Windows: `%APPDATA%\dev-asset-cleaner\dev-asset-cleaner\dev-asset-cleaner.json`
-- macOS: `~/Library/Application Support/dev-asset-cleaner/dev-asset-cleaner/dev-asset-cleaner.json`
+## Author
 
-The environment variable `DAC_DATA_FILE` points the app at another file, which is useful for
-testing. A file from a version without groups opens with its folders in a **Default** group.
-
-## Building
-
-### What you need
-
-| | Windows | macOS |
-|---|---|---|
-| Compiler | Visual Studio 2022 or its Build Tools, with "Desktop development with C++" | Xcode Command Line Tools (`xcode-select --install`) |
-| Tools | CMake 3.25 or later | CMake 3.25 or later and Ninja (`brew install cmake ninja`) |
-| Qt download | [uv](https://docs.astral.sh/uv/) | [uv](https://docs.astral.sh/uv/) |
-
-### Steps
-
-1. Download Qt. The script fetches the prebuilt Qt 6.10.3 base module (about 300 MB) into
-   `.qt/` with [aqtinstall](https://github.com/miurahr/aqtinstall). It needs no Qt account and
-   runs only once.
-
-   To share one Qt between projects, set the `QT_ROOT` environment variable to a folder in
-   aqtinstall's layout (`<root>/6.10.3/msvc2022_64` or `<root>/6.10.3/macos`) before you run the
-   script and configure. The script then uses Qt from there, or downloads it there.
-
-   ```sh
-   scripts/setup.ps1     # Windows (PowerShell)
-   sh scripts/setup.sh   # macOS
-   ```
-
-2. Configure, build and test. Use the preset `windows` or `macos`.
-
-   ```sh
-   cmake --preset windows
-   cmake --build --preset windows
-   ctest --preset windows
-   ```
-
-   The app is in `build/windows/bin/Release/dev-asset-cleaner.exe`, or
-   `build/macos/bin/Release/Dev Asset Cleaner.app`.
-
-3. Package. This copies the app and the Qt libraries it needs into one folder. The prefix must
-   be an absolute path.
-
-   ```sh
-   cmake --install build/windows --config Release --prefix "$PWD/dist"
-   ```
-
-The executable icon comes from `resources/dev-asset-cleaner.ico` and
-`resources/dev-asset-cleaner.icns`. Both are generated from the drawing in `src/ui/Icons.cpp`;
-after changing it, rebuild them with `cmake --build --preset windows --target make_icons`, then
-run `build/windows/bin/Release/make_icons resources`.
-
-The screenshots above are `docs/screenshot-macos.png` and `docs/screenshot.png`, drawn with
-made-up folders by the `make_screenshot` target. After changing the look of the window, rebuild
-it with `cmake --build --preset macos --target make_screenshot`, then run
-`build/macos/bin/Release/make_screenshot docs/screenshot-macos.png`. On Windows, use the
-`windows` preset and `docs/screenshot.png`. On Windows the tool captures the window with
-`PrintWindow`. On macOS it uses `screencapture`, which needs the Screen Recording permission;
-without it, the picture has no title bar.
-
-### Tasks
-
-`Taskfile.yml` wraps the steps above for [Task](https://taskfile.dev). Each task uses the
-preset for the current platform. Run `task --list` to see them all.
-
-```sh
-task test         # download Qt if needed, configure, build and test
-task run          # start the app with a scratch data file in the build folder
-task run-prod     # start the app with your real data file
-task install      # copy the app and the Qt libraries into dist/
-task package      # make the Windows setup or the macOS disk image
-task icons        # regenerate the icon files
-task screenshot   # regenerate the screenshot of the current platform
-```
-
-### Windows setup
-
-With [NSIS](https://nsis.sourceforge.io/) installed, `cpack` builds
-`dev-asset-cleaner-<version>-win64.exe` from a Release build:
-
-```sh
-cd build/windows
-cpack -C Release
-```
-
-The setup installs the app with the Qt and Visual C++ runtime libraries it needs, adds a Start
-menu entry, and on its last page offers to run the app and to start it when you sign in. It
-then starts hidden in the tray (`dev-asset-cleaner --hidden`). The same option is in Settings.
-When you install a new version over an old one, the sign-in option keeps its current setting.
-
-### macOS disk image
-
-`cpack` builds `dev-asset-cleaner-<version>-macos.dmg` from a Release build:
-
-```sh
-cd build/macos
-cpack -C Release
-```
-
-The disk image holds `Dev Asset Cleaner.app`, with the Qt libraries it needs, and a link to the
-Applications folder. Drag the app onto the link to install it.
-
-This disk image is signed ad hoc, not with an Apple Developer ID, and it is not notarised. The
-first time you start a downloaded copy, macOS refuses to open it. Open System Settings > Privacy &
-Security and click **Open Anyway** next to the message about the app.
-
-### Notarised macOS disk image
-
-`scripts/release-macos.sh` builds a disk image that macOS opens without a warning. It builds and
-tests the app in `build/macos-release`, signs the app and the disk image with your Developer ID,
-has Apple notarise the disk image, and staples the notarisation ticket to it.
-
-Locally it uses the "Developer ID Application" identity in your keychain and the notarytool
-keychain profile `mac-apps`. Make that profile once, from an App Store Connect API key:
-
-```sh
-xcrun notarytool store-credentials mac-apps --key AuthKey_<key id>.p8 --key-id <key id> --issuer <issuer id>
-```
-
-Then build the disk image. `--upload` attaches it to the GitHub release `v<version>` and replaces
-the one there:
-
-```sh
-bash scripts/release-macos.sh 1.0.0 --upload
-```
-
-The header of the script lists the environment variables that override these defaults.
-
-### Releases
-
-Pushing a tag `vX.Y.Z` runs the release workflow. It publishes a GitHub release for the tag,
-builds and tests the app with that version, then attaches the Windows setup and the notarised
-macOS disk image to the release. The macOS job runs `scripts/release-macos.sh` with these
-secrets of the `release` environment:
-
-| Secret | Value |
-|---|---|
-| `MACOS_CERTIFICATE_P12` | The "Developer ID Application" certificate with its private key, exported from Keychain Access as a `.p12` file, base64-encoded: `base64 -i cert.p12 \| pbcopy` |
-| `MACOS_CERTIFICATE_PASSWORD` | The password given to the `.p12` file on export |
-| `NOTARY_API_KEY` | An App Store Connect API key: the contents of its `.p8` file. Make one at appstoreconnect.apple.com under Users and Access > Integrations > Team Keys, with the Developer role. |
-| `NOTARY_API_KEY_ID` | That key's ID |
-| `NOTARY_API_ISSUER` | The issuer ID shown above the list of keys |
-
-Without these secrets the macOS job fails rather than attach a disk image that is not
-notarised. Limit the environment's deployment branches and tags to `v*` tags and `master`, so
-other branches cannot use the secrets.
-
-To change the Qt version, edit the version at the top of both setup scripts and in
-`CMakePresets.json`.
+Rangel Reale (realerangel@gmail.com)
 
 ## License
 
