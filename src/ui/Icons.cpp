@@ -11,17 +11,63 @@
 namespace Icons {
 
 namespace {
-QPainterPath folderPath(qreal s)
+// The bin's lid with its handle, as one shape.
+QPainterPath lidPath(qreal s)
 {
+    QPainterPath lid;
+    lid.addRoundedRect(QRectF(0.12 * s, 0.22 * s, 0.76 * s, 0.1 * s), 0.035 * s, 0.035 * s);
+    QPainterPath handle;
+    handle.addRoundedRect(QRectF(0.38 * s, 0.13 * s, 0.24 * s, 0.14 * s), 0.05 * s, 0.05 * s);
+    QPainterPath grip;
+    grip.addRoundedRect(QRectF(0.44 * s, 0.17 * s, 0.12 * s, 0.05 * s), 0.02 * s, 0.02 * s);
+    return lid.united(handle).subtracted(grip);
+}
+
+// The bin's body: a tapered tub with rounded corners.
+QPainterPath bodyPath(qreal s)
+{
+    const qreal top = 0.36 * s;
+    const qreal bottom = 0.9 * s;
+    const qreal r = 0.07 * s;
     QPainterPath path;
-    path.moveTo(0.06 * s, 0.22 * s);
-    path.lineTo(0.38 * s, 0.22 * s);
-    path.lineTo(0.46 * s, 0.32 * s);
-    path.lineTo(0.94 * s, 0.32 * s);
-    path.lineTo(0.94 * s, 0.86 * s);
-    path.lineTo(0.06 * s, 0.86 * s);
+    path.moveTo(0.17 * s, top);
+    path.lineTo(0.83 * s, top);
+    path.lineTo(0.77 * s, bottom - r);
+    path.quadTo(0.765 * s, bottom, 0.77 * s - r, bottom);
+    path.lineTo(0.23 * s + r, bottom);
+    path.quadTo(0.235 * s, bottom, 0.23 * s, bottom - r);
     path.closeSubpath();
     return path;
+}
+
+// Curly braces on the front of the bin, so that it reads as a bin for code rather than the
+// system's trash.
+QPainterPath bracesPath(qreal s)
+{
+    const auto brace = [s](qreal x, qreal dir) {
+        // dir is 1 for "{" and -1 for "}"; x is where the brace's point sits.
+        const qreal top = 0.45 * s;
+        const qreal mid = 0.625 * s;
+        const qreal bottom = 0.8 * s;
+        const qreal w = 0.09 * s * dir;
+        QPainterPath path;
+        path.moveTo(x * s + w, top);
+        path.cubicTo(x * s + w * 0.35, top, x * s + w * 0.45, top + 0.03 * s,
+                     x * s + w * 0.45, top + 0.07 * s);
+        path.lineTo(x * s + w * 0.45, mid - 0.05 * s);
+        path.quadTo(x * s + w * 0.45, mid, x * s, mid);
+        path.quadTo(x * s + w * 0.45, mid, x * s + w * 0.45, mid + 0.05 * s);
+        path.lineTo(x * s + w * 0.45, bottom - 0.07 * s);
+        path.cubicTo(x * s + w * 0.45, bottom - 0.03 * s, x * s + w * 0.35, bottom,
+                     x * s + w, bottom);
+        return path;
+    };
+    QPainterPathStroker stroker;
+    stroker.setWidth(qMax(1.2, 0.065 * s));
+    stroker.setCapStyle(Qt::RoundCap);
+    stroker.setJoinStyle(Qt::RoundJoin);
+    return stroker.createStroke(brace(0.33, 1)).united(stroker.createStroke(brace(0.67, -1)))
+        .simplified();
 }
 
 // A four-pointed sparkle centred at (x, y), as fractions of the icon size.
@@ -44,9 +90,9 @@ QPainterPath sparklePath(qreal s, qreal x, qreal y, qreal outer)
     return path;
 }
 
-QPainterPath sparklesPath(qreal s)
+QPainterPath sparkle(qreal s, qreal grow = 0)
 {
-    return sparklePath(s, 0.46, 0.6, 0.21).united(sparklePath(s, 0.75, 0.47, 0.09));
+    return sparklePath(s, 0.86, 0.11, 0.1 + grow);
 }
 
 void paintBadge(QPainter &painter, qreal s)
@@ -73,13 +119,18 @@ QImage render(int size, bool mono, bool warning)
     QPainter painter(&image);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::NoPen);
+    // The lid gives way round the sparkle, so the two stay apart in the template image too.
+    const QPainterPath lid = lidPath(size).subtracted(sparkle(size, 0.04));
     if (mono) {
-        // Template images use alpha only: the sparkles are cut out of the folder.
-        QPainterPath shape = folderPath(size).subtracted(sparklesPath(size));
-        painter.fillPath(shape, Qt::black);
+        // Template images use alpha only: the braces are cut out of the body.
+        painter.fillPath(lid, Qt::black);
+        painter.fillPath(bodyPath(size).subtracted(bracesPath(size)), Qt::black);
+        painter.fillPath(sparkle(size), Qt::black);
     } else {
-        painter.fillPath(folderPath(size), QColor(0x2A, 0x9D, 0x8F));
-        painter.fillPath(sparklesPath(size), QColor(0xF1, 0xFA, 0xEE));
+        painter.fillPath(lid, QColor(0x26, 0x46, 0x53));
+        painter.fillPath(bodyPath(size), QColor(0x2A, 0x9D, 0x8F));
+        painter.fillPath(bracesPath(size), QColor(0xF1, 0xFA, 0xEE));
+        painter.fillPath(sparkle(size), QColor(0xE9, 0xC4, 0x6A));
     }
     if (warning)
         paintBadge(painter, size);

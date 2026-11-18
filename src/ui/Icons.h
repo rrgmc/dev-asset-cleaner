@@ -5,7 +5,8 @@
 
 namespace Icons {
 
-// A folder with a sparkle, drawn in code. The executable's .ico and .icns files are generated
+// A bin with curly braces on its front and a sparkle above it, drawn in code. The braces keep it
+// from looking like the system's trash. The executable's .ico and .icns files are generated
 // from the same drawing by tools/make_icons.
 QIcon appIcon();
 // The icon in the tray or menu bar. Without a warning it is the same shape as a monochrome
