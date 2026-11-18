@@ -94,6 +94,10 @@ keep fixes to those parts in step with it.
 - `cpack -C Release` in a Windows build folder makes the NSIS setup, with the same patched
   NSIS template and finish page options as favdir. Configuring fails if the template's
   anchors change in a new CMake version.
+- On macOS the bundle is `Dev Asset Cleaner.app`, from the executable's `OUTPUT_NAME`
+  (`DAC_BUNDLE_NAME`); the target and the Windows executable keep the name
+  `dev-asset-cleaner`. Quote paths to the bundle: the name has spaces. The data folder does not
+  change with it, because `main.cpp` sets the application name.
 - `cpack -C Release` in a macOS build folder makes the DragNDrop disk image. The install step
   signs the bundle after macdeployqt. `DAC_CODESIGN_IDENTITY` picks the identity: `-` (ad hoc,
   the default) or a Developer ID, which adds the hardened runtime and timestamp.

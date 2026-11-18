@@ -97,8 +97,15 @@ endif()
 target_compile_definitions(dev-asset-cleaner PRIVATE DAC_VERSION="${PROJECT_VERSION}")
 target_link_libraries(dev-asset-cleaner PRIVATE dac_ui Qt6::Network)
 
+# On macOS the bundle and its executable carry the app's name, as Finder shows it:
+# "Dev Asset Cleaner.app". Elsewhere the executable keeps the target's name.
+set(DAC_BUNDLE_NAME "Dev Asset Cleaner")
+if(APPLE)
+    set_target_properties(dev-asset-cleaner PROPERTIES OUTPUT_NAME "${DAC_BUNDLE_NAME}")
+endif()
+
 set_target_properties(dev-asset-cleaner PROPERTIES
-    MACOSX_BUNDLE_BUNDLE_NAME "Dev Asset Cleaner"
+    MACOSX_BUNDLE_BUNDLE_NAME "${DAC_BUNDLE_NAME}"
     MACOSX_BUNDLE_GUI_IDENTIFIER com.rangelreale.dev-asset-cleaner
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
@@ -173,7 +180,7 @@ if(APPLE)
         execute_process(
             COMMAND codesign --force --deep ${_codesign_options}
                     --sign \"${DAC_CODESIGN_IDENTITY}\"
-                    \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/dev-asset-cleaner.app\"
+                    \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${DAC_BUNDLE_NAME}.app\"
             COMMAND_ERROR_IS_FATAL ANY)
     ")
 endif()
