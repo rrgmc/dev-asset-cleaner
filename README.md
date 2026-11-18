@@ -22,7 +22,8 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 - The two sort buttons in the toolbar, or **View > Sort groups by** and **View > Sort folders
   by**, order each list by name, by the space to clean (the most first), or in your own order.
   Change your own order by dragging a group or folder to another place in its list, or with
-  **Move up** and **Move down**. A folder moves only among the folders of its group. The app
+  **Move up** and **Move down**. A folder moves only among the folders of its group, and a
+  group moves only while it is the only one selected. The app
   remembers the choice, and your own order comes back when you choose it again. While a list
   is sorted by name or space, dragging within it and its Move commands are off.
 - Each folder has a **kind**, which says what cleaning deletes (see below): everything in it,

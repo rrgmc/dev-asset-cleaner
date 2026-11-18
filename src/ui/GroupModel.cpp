@@ -77,6 +77,10 @@ Qt::ItemFlags GroupModel::flags(const QModelIndex &index) const
     Qt::ItemFlags f = QAbstractListModel::flags(index);
     if (index.isValid())
         f |= Qt::ItemIsEditable | Qt::ItemIsDropEnabled;
+    // Without this flag the view selects rows while the mouse moves instead of dragging. In
+    // the other orders it does select, as there is nowhere to drag a group to.
+    if (index.isValid() && m_sortOrder == SortOrder::Manual)
+        f |= Qt::ItemIsDragEnabled;
     return f;
 }
 

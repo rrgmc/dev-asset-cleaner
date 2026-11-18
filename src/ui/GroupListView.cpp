@@ -99,8 +99,10 @@ void GroupListView::startDrag(Qt::DropActions)
 {
     // Only this list takes the drop, and the store moves the group: the model's rows must not
     // be removed by a Move drop, as QAbstractItemView would do.
+    // With several groups selected there is no one group to move.
     const QModelIndex index = currentIndex();
-    if (!index.isValid() || m_model->sortOrder() != SortOrder::Manual)
+    if (!index.isValid() || m_model->sortOrder() != SortOrder::Manual
+        || selectionModel()->selectedIndexes().size() > 1)
         return;
     auto *mime = new QMimeData;
     mime->setData(groupMimeType(),

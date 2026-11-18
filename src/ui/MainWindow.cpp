@@ -699,7 +699,8 @@ void MainWindow::updateGroupActions()
     for (QAction *action : std::as_const(m_groupActions))
         action->setEnabled(hasGroup);
     for (QAction *action : std::as_const(m_groupMoveActions))
-        action->setEnabled(hasGroup && m_groupModel->sortOrder() == SortOrder::Manual);
+        action->setEnabled(hasGroup && m_groupModel->sortOrder() == SortOrder::Manual
+                           && selectedGroups().size() == 1);
     for (QAction *action : std::as_const(m_addActions))
         action->setEnabled(hasGroup);
 }

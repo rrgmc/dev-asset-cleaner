@@ -298,9 +298,21 @@ private slots:
         m_window->setGroupSort(SortOrder::Cleanable);
         QCOMPARE(rows(), (QList<QUuid>{nine, first, ten}));
 
+        // Groups can be dragged only in manual order; otherwise a drag selects.
+        const auto draggable = [this] {
+            return m_groups->model()->flags(m_groups->model()->index(0, 0)).testFlag(Qt::ItemIsDragEnabled);
+        };
+        QVERIFY(!draggable());
+
         m_window->setGroupSort(SortOrder::Manual);
         QCOMPARE(rows(), (QList<QUuid>{first, ten, nine}));
         QVERIFY(moveUp->isEnabled());
+        QVERIFY(draggable());
+
+        // Several selected groups cannot be moved.
+        m_groups->selectionModel()->select(m_groups->model()->index(0, 0), QItemSelectionModel::Select);
+        QCOMPARE(m_groups->selectedIds().size(), 2);
+        QVERIFY(!moveUp->isEnabled());
     }
 
     void foldersSort()
