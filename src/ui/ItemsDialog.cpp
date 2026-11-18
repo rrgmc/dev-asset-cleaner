@@ -25,28 +25,35 @@ public:
 };
 } // namespace
 
-ItemsDialog::ItemsDialog(const QString &folderName, const QString &folderPath,
-                         const ScanResult &result, QWidget *parent)
-    : QDialog(parent)
+ItemsView::ItemsView(QWidget *parent)
+    : QWidget(parent)
+    , m_summary(new QLabel(this))
+    , m_tree(new QTreeWidget(this))
 {
-    setWindowTitle(tr("What cleaning %1 deletes").arg(folderName));
-    resize(720, 480);
+    m_summary->setWordWrap(true);
+    m_tree->setRootIsDecorated(false);
+    m_tree->setUniformRowHeights(true);
+    m_tree->setHeaderLabels({tr("Size"), tr("Path")});
+    m_tree->header()->setStretchLastSection(true);
+    m_tree->setSortingEnabled(true);
+    m_tree->sortByColumn(0, Qt::DescendingOrder);
 
-    auto *summary = new QLabel(this);
-    summary->setWordWrap(true);
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_summary);
+    layout->addWidget(m_tree, 1);
+}
+
+void ItemsView::setResult(const QString &folderPath, const ScanResult &result)
+{
     if (!result.valid)
-        summary->setText(tr("The folder has not been scanned yet."));
+        m_summary->setText(tr("The folder has not been scanned yet."));
     else
-        summary->setText(tr("%n item(s), %1 in all, last scanned %2.", nullptr,
-                            static_cast<int>(result.items.size()))
-                             .arg(Format::bytes(result.cleanableBytes),
-                                  QLocale().toString(result.finishedAt, QLocale::ShortFormat)));
+        m_summary->setText(tr("%n item(s), %1 in all, last scanned %2.", nullptr,
+                              static_cast<int>(result.items.size()))
+                               .arg(Format::bytes(result.cleanableBytes),
+                                    QLocale().toString(result.finishedAt, QLocale::ShortFormat)));
 
-    auto *tree = new QTreeWidget(this);
-    tree->setRootIsDecorated(false);
-    tree->setUniformRowHeights(true);
-    tree->setHeaderLabels({tr("Size"), tr("Path")});
-    tree->header()->setStretchLastSection(true);
     const QDir base(folderPath);
     QList<QTreeWidgetItem *> rows;
     for (const ScanItem &item : result.items) {
@@ -58,16 +65,25 @@ ItemsDialog::ItemsDialog(const QString &folderName, const QString &folderPath,
         row->setToolTip(1, QDir::toNativeSeparators(item.path));
         rows.append(row);
     }
-    tree->addTopLevelItems(rows);
-    tree->setSortingEnabled(true);
-    tree->sortByColumn(0, Qt::DescendingOrder);
-    tree->resizeColumnToContents(0);
+    m_tree->clear();
+    m_tree->addTopLevelItems(rows);
+    m_tree->resizeColumnToContents(0);
+}
+
+ItemsDialog::ItemsDialog(const QString &folderName, const QString &folderPath,
+                         const ScanResult &result, QWidget *parent)
+    : QDialog(parent)
+{
+    setWindowTitle(tr("What cleaning %1 deletes").arg(folderName));
+    resize(720, 480);
+
+    auto *items = new ItemsView(this);
+    items->setResult(folderPath, result);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto *layout = new QVBoxLayout(this);
-    layout->addWidget(summary);
-    layout->addWidget(tree, 1);
+    layout->addWidget(items, 1);
     layout->addWidget(buttons);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CleanDetailsDialog.h"
 #include "SortOrder.h"
 #include "clean/Scanner.h"
 #include "model/Folder.h"
@@ -85,8 +86,8 @@ private:
     void removeFolder();
     void rescanFolder();
     void cleanFolder(const QUuid &id);
-    // Opens SubfolderDialog for a Matching folder.
-    void cleanSubfolders(const QUuid &id);
+    // Opens CleanDetailsDialog on `tab`; the Subfolders tab only for a Matching folder.
+    void showCleanDetails(const QUuid &id, CleanDetailsDialog::Tab tab);
     // Cleans the selected groups' folders, or every folder.
     void cleanAll(bool everything = false);
     void addGroup();
@@ -99,7 +100,6 @@ private:
     QActionGroup *addSortMenu(QMenu *parent, const QString &title,
                               const std::function<void(SortOrder)> &apply);
     void showGroupContextMenu(const QUuid &id, const QPoint &globalPos);
-    void showItems();
     void openFolder(const QUuid &id);
     void copyPath(const QUuid &id);
     void editTypes();

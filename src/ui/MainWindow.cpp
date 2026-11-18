@@ -13,9 +13,9 @@
 #include "GroupModel.h"
 #include "Icons.h"
 #include "ItemsDialog.h"
+#include "CleanDetailsDialog.h"
 #include "LoginItem.h"
 #include "SettingsDialog.h"
-#include "SubfolderDialog.h"
 #include "Spinner.h"
 #include "TrayIcon.h"
 #include "UsagePanel.h"
@@ -296,11 +296,14 @@ void MainWindow::createActions()
     m_cleanAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_K));
     QAction *rescan = folder->addAction(tr("&Rescan"), this, &MainWindow::rescanFolder);
     rescan->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_R));
-    QAction *items = folder->addAction(tr("&Show what cleaning deletes…"), this,
-                                       &MainWindow::showItems);
+    QAction *items = folder->addAction(tr("&Show what cleaning deletes…"), this, [this] {
+        showCleanDetails(currentId(), CleanDetailsDialog::Tab::Items);
+    });
     items->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
     m_subfoldersAction = folder->addAction(tr("Clean s&ubfolders…"), this,
-                                           [this] { cleanSubfolders(currentId()); });
+                                           [this] {
+        showCleanDetails(currentId(), CleanDetailsDialog::Tab::Subfolders);
+    });
     m_subfoldersAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_U));
     folder->addSeparator();
     QAction *open = folder->addAction(tr("&Open folder"), this, [this] { openFolder(currentId()); });
@@ -1083,7 +1086,7 @@ void MainWindow::cleanFolder(const QUuid &id)
             ItemsDialog(f->name, f->path, r, this).exec();
         }
         if (subfolders && box.clickedButton() == subfolders) {
-            cleanSubfolders(id);
+            showCleanDetails(id, CleanDetailsDialog::Tab::Subfolders);
             return;
         }
         if (box.clickedButton() != ok)
@@ -1092,12 +1095,12 @@ void MainWindow::cleanFolder(const QUuid &id)
     m_monitor->clean(id);
 }
 
-void MainWindow::cleanSubfolders(const QUuid &id)
+void MainWindow::showCleanDetails(const QUuid &id, CleanDetailsDialog::Tab tab)
 {
     const Folder *f = m_store->folder(id);
-    if (!f || f->kind != Folder::Kind::Matching)
+    if (!f || (tab == CleanDetailsDialog::Tab::Subfolders && f->kind != Folder::Kind::Matching))
         return;
-    SubfolderDialog dialog(m_store, m_monitor, id, this);
+    CleanDetailsDialog dialog(m_store, m_monitor, id, tab, this);
     dialog.setConfirmCleaning(m_confirmCleaning);
     dialog.exec();
 }
@@ -1306,14 +1309,6 @@ void MainWindow::onCleaned(const QUuid &id, const CleanResult &result)
     box.exec();
 }
 
-void MainWindow::showItems()
-{
-    const Folder *f = m_store->folder(currentId());
-    if (!f)
-        return;
-    ItemsDialog(f->name, f->path, m_monitor->result(f->id), this).exec();
-}
-
 void MainWindow::openFolder(const QUuid &id)
 {
     if (const Folder *f = m_store->folder(id))
@@ -1375,9 +1370,12 @@ void MainWindow::showContextMenu(const QUuid &id, const QPoint &globalPos)
     menu.addAction(tr("&Clean…"), this, [this, id] { cleanFolder(id); })
         ->setEnabled(idle && r.valid && r.cleanableBytes > 0);
     menu.addAction(tr("&Rescan"), this, [this, id] { m_monitor->rescan(id); })->setEnabled(idle);
-    menu.addAction(tr("&Show what cleaning deletes…"), this, &MainWindow::showItems);
+    menu.addAction(tr("&Show what cleaning deletes…"), this,
+                   [this, id] { showCleanDetails(id, CleanDetailsDialog::Tab::Items); });
     if (f->kind == Folder::Kind::Matching) {
-        menu.addAction(tr("Clean s&ubfolders…"), this, [this, id] { cleanSubfolders(id); });
+        menu.addAction(tr("Clean s&ubfolders…"), this, [this, id] {
+            showCleanDetails(id, CleanDetailsDialog::Tab::Subfolders);
+        });
         menu.addAction(tr("&Detect types…"), this, [this, id] { detectTypes(id); });
     }
     menu.addSeparator();

@@ -76,9 +76,13 @@ work in the main checkout's working tree, which stays on `master`.
   the style's drop indicator. "Clean all" and "Rescan all" act on the
   selected groups; Tools has the commands for every group. `FolderListView` derives from
   `CleanableListView`, which handles the Clean buttons and spinners of any model that answers
-  `FolderModel`'s roles. `SubfolderDialog` (Folder > Clean subfolders, Matching folders only)
+  `FolderModel`'s roles. `CleanDetailsDialog` has two tabs: Items, an `ItemsView` of the
+  folder's last scan (Folder > Show what cleaning deletes), and Subfolders, a `SubfolderPanel`
+  (Folder > Clean subfolders, Matching folders only), made when the tab is first shown; each
+  menu opens its own tab. `SubfolderPanel`
   lists a folder's first-level subfolders through `SubfolderModel`, which scans and cleans each
-  one on its own thread pool, and asks `Monitor` to rescan the folder after each clean. `DetectDialog` runs `Scanner::detect` in the background and returns the
+  one on its own thread pool, and asks `Monitor` to rescan the folder after each clean.
+  `ItemsDialog` shows an `ItemsView` alone, for a subfolder or the confirmation box. `DetectDialog` runs `Scanner::detect` in the background and returns the
   chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
   `GroupModel` and `FolderModel` sort their own rows (`SortOrder`: manual, name, or space to
   clean), so row numbers from `idAt` and `rowOf` stay valid; a re-sort is a layout change that
