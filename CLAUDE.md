@@ -17,7 +17,7 @@ work in the main checkout's working tree, which stays on `master`.
 - Qt is shared only through `QT_ROOT`. Without it, `scripts/setup.ps1` or `scripts/setup.sh`
   downloads Qt again into the worktree's own `.qt/`, so set `QT_ROOT` first.
 - `master` is protected on GitHub: nobody, admins included, can push to it directly. Changes
-  reach it only through a pull request that passes both `build` checks (Windows and macOS).
+  reach it only through a pull request that passes the `ci` check (see Packaging and releases).
   No approval is needed. Force pushes to `master` and deleting it are refused. Tags are not
   affected.
 - To merge, push the branch, open a pull request and merge it on GitHub, deleting the remote
