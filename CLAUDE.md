@@ -1,7 +1,7 @@
 # Dev Asset Cleaner
 
 A Qt 6 Widgets app (C++20, CMake) for Windows and macOS that watches the space folders use and
-deletes build outputs and caches in them. `README.md` describes the features and the build for
+deletes build outputs and caches in them. `README.md` describes the app for users and `BUILDING.md` the build, packaging and releases for
 users. The build, packaging, release and platform code come from the sibling project favdir;
 keep fixes to those parts in step with it.
 
