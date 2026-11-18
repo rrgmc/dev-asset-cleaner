@@ -63,6 +63,7 @@ qt_add_library(dac_ui STATIC
     src/ui/SystemFoldersDialog.h src/ui/SystemFoldersDialog.cpp
     src/ui/TrayIcon.h
     src/ui/TypesDialog.h src/ui/TypesDialog.cpp
+    src/ui/UsagePanel.h src/ui/UsagePanel.cpp
 )
 target_link_libraries(dac_ui PUBLIC dac_core Qt6::Widgets)
 if(APPLE)

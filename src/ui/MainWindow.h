@@ -16,6 +16,7 @@ class QMenu;
 class QSplitter;
 class Store;
 class TrayIcon;
+class UsagePanel;
 
 class MainWindow : public QMainWindow
 {
@@ -96,6 +97,7 @@ private:
     QSplitter *m_splitter = nullptr;
     QLineEdit *m_filter;
     QLabel *m_summary;
+    UsagePanel *m_usage = nullptr;
     TrayIcon *m_tray = nullptr;
     QMenu *m_trayMenu = nullptr;
     int m_trayAttempts = 0;

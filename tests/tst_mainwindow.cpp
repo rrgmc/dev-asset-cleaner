@@ -135,10 +135,19 @@ private slots:
         QCOMPARE(m_groups->selectedIds(), QList<QUuid>{second});
         QCOMPARE(m_list->model()->rowCount(), 1);
 
+        // The usage panel adds the selected group's usage beside every folder's.
+        auto *usage = m_window->findChild<QWidget *>(QStringLiteral("usagePanel"));
+        QVERIFY(usage);
+        QTRY_VERIFY(usage->toolTip().contains(QStringLiteral("Selected groups")));
+        const int partialWidth = usage->sizeHint().width();
+
         // Both groups selected: both folders, in the groups' order.
         m_groups->selectAll();
         QCOMPARE(m_groups->selectedIds(), (QList<QUuid>{first, second}));
         QCOMPARE(m_list->model()->rowCount(), 2);
+        // The selection is everything, so the panel shows only the total.
+        QVERIFY(!usage->toolTip().contains(QStringLiteral("Selected groups")));
+        QVERIFY(usage->sizeHint().width() < partialWidth);
 
         // Cleaning the selected groups leaves the other groups alone.
         m_groups->selectId(second);
