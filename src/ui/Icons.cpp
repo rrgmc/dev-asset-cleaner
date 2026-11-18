@@ -99,11 +99,13 @@ void paintBadge(QPainter &painter, qreal s)
 {
     const QPointF center(0.76 * s, 0.76 * s);
     const qreal r = 0.24 * s;
-    painter.setBrush(QColor(0xE8, 0x59, 0x0C));
-    painter.setPen(QPen(Qt::white, qMax(1.0, 0.04 * s)));
+    // Yellow with dark ink, which stands apart from the coral bin even at 16 pixels.
+    const QColor ink(0x1B, 0x1B, 0x1B);
+    painter.setBrush(QColor(0xFF, 0xC3, 0x00));
+    painter.setPen(QPen(ink, qMax(1.0, 0.04 * s)));
     painter.drawEllipse(center, r, r);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(Qt::white);
+    painter.setBrush(ink);
     const qreal w = 0.07 * s;
     painter.drawRoundedRect(QRectF(center.x() - w / 2, center.y() - 0.15 * s, w, 0.17 * s),
                             w / 2, w / 2);

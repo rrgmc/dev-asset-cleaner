@@ -35,7 +35,7 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
   leaves the Dock until the window shows again). The tray menu and the tooltip show the space
   each folder uses and the free space on their disks. With several groups, the tray menu has a
   submenu for each group.
-- The tray icon gets an orange badge when free space is low, when a folder is over its own
+- The tray icon gets a yellow badge when free space is low, when a folder is over its own
   size limit, or when all folders together are over a total limit. Set the limits in Settings
   and in each folder.
 - Settings can **start the app when you sign in** (on macOS 13 and later). It then starts
