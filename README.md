@@ -6,6 +6,8 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 
 ![The Dev Asset Cleaner window on macOS](docs/screenshot-macos.png)
 
+![The Dev Asset Cleaner window on Windows](docs/screenshot.png)
+
 - Folders are kept in **groups**, listed on the left of the window. The app starts with one
   group, **Default**, which can be renamed or deleted like any other. Select several groups
   (Ctrl-click or Shift-click) to see their folders together. Deleting a group stops monitoring
@@ -190,13 +192,13 @@ The executable icon comes from `resources/dev-asset-cleaner.ico` and
 after changing it, rebuild them with `cmake --build --preset windows --target make_icons`, then
 run `build/windows/bin/Release/make_icons resources`.
 
-The screenshot above is `docs/screenshot-macos.png`, drawn with made-up folders by the
-`make_screenshot` target. After changing the look of the window, rebuild it with
-`cmake --build --preset macos --target make_screenshot`, then run
+The screenshots above are `docs/screenshot-macos.png` and `docs/screenshot.png`, drawn with
+made-up folders by the `make_screenshot` target. After changing the look of the window, rebuild
+it with `cmake --build --preset macos --target make_screenshot`, then run
 `build/macos/bin/Release/make_screenshot docs/screenshot-macos.png`. On Windows, use the
-`windows` preset and `docs/screenshot.png`. On macOS the tool captures the window with
-`screencapture`, which needs the Screen Recording permission; without it, the picture has no
-title bar.
+`windows` preset and `docs/screenshot.png`. On Windows the tool captures the window with
+`PrintWindow`. On macOS it uses `screencapture`, which needs the Screen Recording permission;
+without it, the picture has no title bar.
 
 ### Tasks
 

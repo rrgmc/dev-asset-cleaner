@@ -109,9 +109,11 @@ work in the main checkout's working tree, which stays on `master`.
 - The app icon is drawn in `src/ui/Icons.cpp`. `resources/dev-asset-cleaner.ico` and `.icns`
   are generated from it by the `make_icons` target and committed; regenerate them after
   changing the drawing. The tray's warning icon adds a badge to the same drawing.
-- `docs/screenshot-macos.png` is drawn with made-up data by the `make_screenshot` target,
-  through `Monitor::setResultForDisplay` and `setVolumesForDisplay`. On macOS the tool captures
-  the real window with `screencapture`, which needs the Screen Recording permission.
+- `docs/screenshot-macos.png` and `docs/screenshot.png` (Windows) are drawn with made-up data
+  by the `make_screenshot` target, through `Monitor::setResultForDisplay` and
+  `setVolumesForDisplay`. Each is made on its own platform. The tool captures the real window
+  with its title bar: with `PrintWindow` on Windows, and with `screencapture` on macOS, which
+  needs the Screen Recording permission.
 - Qt 6.8 crashed on macOS 27 in two places, worked around as in favdir and kept with Qt 6.10.
   `TrayIcon` uses a native `NSStatusItem` instead of `QSystemTrayIcon` (fixed in Qt 6.12); its
   menu is rebuilt from the `QMenu` each time it opens. `Icons::toolIcon` draws the toolbar

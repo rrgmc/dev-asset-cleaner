@@ -128,6 +128,8 @@ qt_add_executable(make_screenshot EXCLUDE_FROM_ALL tools/make_screenshot.cpp)
 target_link_libraries(make_screenshot PRIVATE dac_ui)
 if(APPLE)
     target_link_libraries(make_screenshot PRIVATE "-framework CoreGraphics")
+elseif(WIN32)
+    target_link_libraries(make_screenshot PRIVATE dwmapi)
 endif()
 
 # Copy the Qt runtime next to the executable so it runs from the build tree.
