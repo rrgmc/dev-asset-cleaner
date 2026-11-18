@@ -78,7 +78,9 @@ work in the main checkout's working tree, which stays on `master`.
   one on its own thread pool, and asks `Monitor` to rescan the folder after each clean. `DetectDialog` runs `Scanner::detect` in the background and returns the
   chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
   `UsagePanel`, in the toolbar right of the buttons, paints the space to clean in every
-  folder, plus in the selected groups when they are not all of them. The UI shows only the
+  folder, plus in the selected groups when they are not all of them. `FreeSpaceDialog` (the Free space
+  button) lists every disk that holds a monitored folder; the status bar shows only the disks
+  below `Settings::freeWarnBytes`, in the warning colour. The UI shows only the
   space to clean, never a folder's total size; the warning limits (`Folder::warnBytes`,
   `Settings::totalWarnBytes`) also measure the space to clean.
 - `src/platform`: `SingleInstance`.
