@@ -352,9 +352,11 @@ void MainWindow::createActions()
     // Windows draws its theme icons in steps of 4 px (16, 20, 24); in between they draw smaller.
     const int icon = qMax(16, (side / 2 - 2) / 4 * 4);
     toolbar->setIconSize(QSize(icon, icon));
+    // A button with a menu arrow gets the arrow's width on top, so its icon has the same square.
+    const int plainWidth = toolbar->widgetForAction(edit)->sizeHint().width();
     for (QAction *action : toolbar->actions()) {
         if (auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(action)))
-            button->setMinimumWidth(side);
+            button->setMinimumWidth(side + button->sizeHint().width() - plainWidth);
     }
 
     // Tooltips name the command and its shortcut.
