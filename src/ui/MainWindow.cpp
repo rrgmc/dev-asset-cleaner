@@ -40,6 +40,10 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
+#ifdef Q_OS_MACOS
+#include <QPainter>
+#include <QProxyStyle>
+#endif
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTimer>
@@ -61,6 +65,29 @@ constexpr int TrayAttempts = 30;
 constexpr int TrayRetryMs = 2000;
 // How long after losing activation a tray click still counts as one on the window in front.
 constexpr int TrayClickMs = 1500;
+
+#ifdef Q_OS_MACOS
+// Qt's macOS style fills the status bar with the old Aqua title bar gradient, which on current
+// macOS is much lighter than the window. This style fills it with the window colour instead and
+// keeps a thin separator line at the top.
+class StatusBarStyle : public QProxyStyle
+{
+public:
+    void drawPrimitive(PrimitiveElement element, const QStyleOption *option, QPainter *painter,
+                       const QWidget *widget) const override
+    {
+        if (element != PE_PanelStatusBar) {
+            QProxyStyle::drawPrimitive(element, option, painter, widget);
+            return;
+        }
+        const QRect rect = option->rect;
+        painter->fillRect(rect, option->palette.color(QPalette::Window));
+        QColor line = option->palette.color(QPalette::WindowText);
+        line.setAlphaF(0.15f);
+        painter->fillRect(QRect(rect.left(), rect.top(), rect.width(), 1), line);
+    }
+};
+#endif
 
 #ifdef Q_OS_WIN
 // Whether `window` belongs to the taskbar or the notification area's overflow panel.
@@ -194,6 +221,13 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     m_splitter->setStretchFactor(1, 1);
     m_splitter->setSizes({200, 700});
     setCentralWidget(m_splitter);
+#ifdef Q_OS_MACOS
+    {
+        auto *style = new StatusBarStyle;
+        style->setParent(statusBar());
+        statusBar()->setStyle(style);
+    }
+#endif
     m_busy->setToolTip(tr("Scanning or cleaning folders"));
     statusBar()->addPermanentWidget(m_busy);
     statusBar()->addPermanentWidget(m_summary);
