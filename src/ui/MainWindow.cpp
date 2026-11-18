@@ -3,6 +3,7 @@
 #include "AppInfo.h"
 #include "DetectDialog.h"
 #include "ExcludeDialog.h"
+#include "FreeSpaceDialog.h"
 #include "SystemFoldersDialog.h"
 #include "FolderDialog.h"
 #include "FolderListView.h"
@@ -95,6 +96,7 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     , m_groups(new GroupListView(m_groupModel, this))
     , m_filter(new QLineEdit(this))
     , m_summary(new QLabel(this))
+    , m_lowSpace(new QLabel(this))
     , m_busy(new SpinnerWidget(this))
 {
     setWindowTitle(AppInfo::displayName());
@@ -185,6 +187,16 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     m_busy->setToolTip(tr("Scanning or cleaning folders"));
     statusBar()->addPermanentWidget(m_busy);
     statusBar()->addPermanentWidget(m_summary);
+    // Disks below the free space warning get an item of their own, shown only while any is low.
+    m_lowSpace->setObjectName(QStringLiteral("lowSpace"));
+    {
+        QPalette palette = m_lowSpace->palette();
+        palette.setColor(QPalette::WindowText, QColor(0xD9, 0x48, 0x0F));
+        m_lowSpace->setPalette(palette);
+    }
+    m_lowSpace->setToolTip(tr("Free space is below the warning in the settings"));
+    m_lowSpace->hide();
+    statusBar()->addPermanentWidget(m_lowSpace);
 
     createActions();
     createTray();
@@ -311,6 +323,10 @@ void MainWindow::createActions()
     tools->addAction(tr("Rescan e&verything"), m_monitor, &Monitor::rescanAll);
     tools->addSeparator();
     QAction *types = tools->addAction(tr("Cleaner &types…"), this, &MainWindow::editTypes);
+    QAction *freeSpace = tools->addAction(tr("&Free space…"), this, [this] {
+        FreeSpaceDialog dialog(m_store, m_monitor, this);
+        dialog.exec();
+    });
     QAction *settings = tools->addAction(tr("&Settings…"), this, &MainWindow::editSettings);
     settings->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Comma));
     settings->setMenuRole(QAction::PreferencesRole);
@@ -330,6 +346,7 @@ void MainWindow::createActions()
     m_cleanAllAction->setIcon(Icons::toolIcon(QIcon::ThemeIcon::EditDelete));
     types->setIcon(Icons::toolIcon(QIcon::ThemeIcon::FormatJustifyLeft));
     settings->setIcon(Icons::toolIcon(QIcon::ThemeIcon::DocumentPageSetup));
+    freeSpace->setIcon(Icons::toolIcon(QIcon::ThemeIcon::DriveHarddisk));
 
     // The toolbar repeats the most used commands, with shorter labels than the menus.
     QToolBar *toolbar = addToolBar(tr("Toolbar"));
@@ -373,6 +390,7 @@ void MainWindow::createActions()
     addButton(m_cleanAction, tr("Clean"));
     addButton(m_cleanAllAction, tr("Clean the selected groups"));
     toolbar->addSeparator();
+    addButton(freeSpace, tr("Free space"));
     addButton(types, tr("Cleaner types"));
     addButton(settings, tr("Settings"));
 #ifndef Q_OS_MACOS
@@ -467,10 +485,10 @@ void MainWindow::createTray()
 
 void MainWindow::updateSummary()
 {
-    QStringList free;
+    QStringList low;
     for (const Volume &v : m_monitor->volumes()) {
-        free.append(tr("%1%2 free on %3")
-                        .arg(v.low ? warningMark() : QString(), Format::bytes(v.freeBytes), v.name));
+        if (v.low)
+            low.append(tr("%1 free on %2").arg(Format::bytes(v.freeBytes), v.name));
     }
     const QList<QUuid> groups = selectedGroups();
     const qint64 groupCleanable = m_monitor->groupCleanableBytes(groups);
@@ -481,9 +499,9 @@ void MainWindow::updateSummary()
     } else {
         text = tr("Folders: %1 to clean").arg(Format::bytes(m_monitor->cleanableBytes()));
     }
-    if (!free.isEmpty())
-        text += QStringLiteral("   ·   ") + free.join(QStringLiteral(", "));
     m_summary->setText(text);
+    m_lowSpace->setText(warningMark() + low.join(QStringLiteral(", ")));
+    m_lowSpace->setVisible(!low.isEmpty());
     m_busy->setRunning(m_monitor->isBusy());
     if (m_usage) {
         // The selection is worth its own column only when it is not every group.

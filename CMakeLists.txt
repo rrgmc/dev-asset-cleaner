@@ -55,6 +55,7 @@ qt_add_library(dac_ui STATIC
     src/ui/GroupListView.h src/ui/GroupListView.cpp
     src/ui/GroupModel.h src/ui/GroupModel.cpp
     src/ui/Format.h
+    src/ui/FreeSpaceDialog.h src/ui/FreeSpaceDialog.cpp
     src/ui/Icons.h src/ui/Icons.cpp
     src/ui/ItemCheckStyle.h src/ui/ItemCheckStyle.cpp
     src/ui/ItemsDialog.h src/ui/ItemsDialog.cpp

@@ -115,6 +115,7 @@ private:
     QSplitter *m_splitter = nullptr;
     QLineEdit *m_filter;
     QLabel *m_summary;
+    QLabel *m_lowSpace;  // disks below the free space warning
     SpinnerWidget *m_busy;
     UsagePanel *m_usage = nullptr;
     TrayIcon *m_tray = nullptr;
