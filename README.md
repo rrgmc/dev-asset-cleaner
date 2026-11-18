@@ -19,10 +19,13 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 - Drag a folder onto a group to move it there, or use **Move to group** in its menu. A folder
   path can be in one group only. Folders dropped from Explorer or Finder onto a group are added
   to that group.
-- **View > Sort groups by** and **View > Sort folders by** order each list by name, by the
-  space to clean (the most first), or in your own order, which **Move up** and **Move down**
-  change. The app remembers the choice. While a list is sorted by name or space, its Move
-  commands are off.
+- The two sort buttons in the toolbar, or **View > Sort groups by** and **View > Sort folders
+  by**, order each list by name, by the space to clean (the most first), or in your own order.
+  Change your own order by dragging a group or folder to another place in its list, or with
+  **Move up** and **Move down**. A folder moves only among the folders of its group, and a
+  group moves only while it is the only one selected. The app
+  remembers the choice, and your own order comes back when you choose it again. While a list
+  is sorted by name or space, dragging within it and its Move commands are off.
 - Each folder has a **kind**, which says what cleaning deletes (see below): everything in it,
   or only the subfolders that its **cleaner types** match. The **Add** button offers both:
   **Folder** adds a whole folder, and **Matching folders** searches a folder for the cleaner

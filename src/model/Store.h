@@ -51,6 +51,8 @@ public:
     // Removes the group and stops monitoring its folders. Nothing on disk is deleted.
     void removeGroup(const QUuid &id);
     void moveGroupBy(const QUuid &id, int delta);
+    // Moves the group to just before or just after another group.
+    void moveGroupNextTo(const QUuid &id, const QUuid &targetId, bool after);
     static QString defaultGroupName();
 
     // Every folder. A group's folders keep their relative order.
@@ -68,6 +70,9 @@ public:
     void removeFolder(const QUuid &id);
     // Moves the folder up or down among its group's folders.
     void moveBy(const QUuid &id, int delta);
+    // Moves the folder to just before or just after another folder of the same group. Refused
+    // when the target is in another group.
+    void moveNextTo(const QUuid &id, const QUuid &targetId, bool after);
     // Moves the folder to the end of another group.
     void moveToGroup(const QUuid &id, const QUuid &groupId);
 

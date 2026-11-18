@@ -43,6 +43,7 @@ public:
 
     QUuid idAt(int row) const;
     int rowOf(const QUuid &id) const;
+    QUuid groupIdAt(int row) const;
 
     SortOrder sortOrder() const { return m_sortOrder; }
     void setSortOrder(SortOrder order);

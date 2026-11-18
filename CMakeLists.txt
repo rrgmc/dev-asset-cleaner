@@ -61,6 +61,7 @@ qt_add_library(dac_ui STATIC
     src/ui/ItemsDialog.h src/ui/ItemsDialog.cpp
     src/ui/LoginItem.h
     src/ui/MainWindow.h src/ui/MainWindow.cpp
+    src/ui/ReorderDrop.h src/ui/ReorderDrop.cpp
     src/ui/SettingsDialog.h src/ui/SettingsDialog.cpp
     src/ui/SizeSpinBox.h
     src/ui/SortOrder.h src/ui/SortOrder.cpp

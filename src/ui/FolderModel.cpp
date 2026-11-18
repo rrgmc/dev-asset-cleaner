@@ -123,6 +123,12 @@ int FolderModel::rowOf(const QUuid &id) const
     return static_cast<int>(m_ids.indexOf(id));
 }
 
+QUuid FolderModel::groupIdAt(int row) const
+{
+    const Folder *f = m_store->folder(idAt(row));
+    return f ? f->groupId : QUuid();
+}
+
 void FolderModel::setSortOrder(SortOrder order)
 {
     if (order == m_sortOrder)

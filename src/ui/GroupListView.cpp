@@ -4,6 +4,8 @@
 #include "GroupModel.h"
 
 #include <QContextMenuEvent>
+#include <QCursor>
+#include <QDrag>
 #include <QFileInfo>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -52,6 +54,7 @@ GroupListView::GroupListView(GroupModel *model, QWidget *parent)
     setEditTriggers(QAbstractItemView::EditKeyPressed | QAbstractItemView::DoubleClicked);
     setAcceptDrops(true);
     setDropIndicatorShown(false);
+    setDragEnabled(true);
 
     // A reset (a group added, removed or moved) drops the selection; put it back.
     connect(model, &QAbstractItemModel::modelAboutToBeReset, this, [this] {
@@ -85,6 +88,47 @@ GroupListView::GroupListView(GroupModel *model, QWidget *parent)
 QString GroupListView::folderMimeType()
 {
     return QStringLiteral("application/x-dev-asset-cleaner-folders");
+}
+
+QString GroupListView::groupMimeType()
+{
+    return QStringLiteral("application/x-dev-asset-cleaner-group");
+}
+
+void GroupListView::startDrag(Qt::DropActions)
+{
+    // Only this list takes the drop, and the store moves the group: the model's rows must not
+    // be removed by a Move drop, as QAbstractItemView would do.
+    // With several groups selected there is no one group to move.
+    const QModelIndex index = currentIndex();
+    if (!index.isValid() || m_model->sortOrder() != SortOrder::Manual
+        || selectionModel()->selectedIndexes().size() > 1)
+        return;
+    auto *mime = new QMimeData;
+    mime->setData(groupMimeType(),
+                  m_model->idAt(index.row()).toString(QUuid::WithoutBraces).toLatin1());
+    auto *drag = new QDrag(this);
+    drag->setMimeData(mime);
+    const QRect rect = visualRect(index);
+    drag->setPixmap(viewport()->grab(rect));
+    drag->setHotSpot(viewport()->mapFromGlobal(QCursor::pos()) - rect.topLeft());
+    drag->exec(Qt::MoveAction);
+}
+
+QUuid GroupListView::reorderedGroup(const QDropEvent *event) const
+{
+    if (event->source() != this || m_model->sortOrder() != SortOrder::Manual
+        || !event->mimeData()->hasFormat(groupMimeType()))
+        return {};
+    return QUuid::fromString(QString::fromLatin1(event->mimeData()->data(groupMimeType())));
+}
+
+void GroupListView::setReorderTarget(const ReorderDrop::Target &target)
+{
+    if (target == m_reorderTarget)
+        return;
+    m_reorderTarget = target;
+    viewport()->update();
 }
 
 QList<QUuid> GroupListView::selectedIds() const
@@ -196,7 +240,8 @@ void GroupListView::setDropTarget(const QModelIndex &index)
 
 void GroupListView::dragEnterEvent(QDragEnterEvent *event)
 {
-    if (!folderIds(event->mimeData()).isEmpty() || !localFolders(event->mimeData()).isEmpty())
+    if (!folderIds(event->mimeData()).isEmpty() || !localFolders(event->mimeData()).isEmpty()
+        || !reorderedGroup(event).isNull())
         event->acceptProposedAction();
     else
         event->ignore();
@@ -204,6 +249,16 @@ void GroupListView::dragEnterEvent(QDragEnterEvent *event)
 
 void GroupListView::dragMoveEvent(QDragMoveEvent *event)
 {
+    if (!reorderedGroup(event).isNull()) {
+        const ReorderDrop::Target target =
+            ReorderDrop::targetAt(this, event->position().toPoint(), m_model->rowCount());
+        setReorderTarget(target);
+        if (target.isValid())
+            event->acceptProposedAction();
+        else
+            event->ignore();
+        return;
+    }
     const QModelIndex index = indexAt(event->position().toPoint());
     const bool ok = index.isValid()
                     && (!folderIds(event->mimeData()).isEmpty()
@@ -218,13 +273,26 @@ void GroupListView::dragMoveEvent(QDragMoveEvent *event)
 void GroupListView::dragLeaveEvent(QDragLeaveEvent *event)
 {
     setDropTarget({});
+    setReorderTarget({});
     QListView::dragLeaveEvent(event);
 }
 
 void GroupListView::dropEvent(QDropEvent *event)
 {
-    const QModelIndex index = indexAt(event->position().toPoint());
     setDropTarget({});
+    setReorderTarget({});
+    if (const QUuid group = reorderedGroup(event); !group.isNull()) {
+        const ReorderDrop::Target target =
+            ReorderDrop::targetAt(this, event->position().toPoint(), m_model->rowCount());
+        if (!target.isValid()) {
+            event->ignore();
+            return;
+        }
+        event->acceptProposedAction();
+        emit groupMoveRequested(group, m_model->idAt(target.row), target.after);
+        return;
+    }
+    const QModelIndex index = indexAt(event->position().toPoint());
     const QList<QUuid> ids = folderIds(event->mimeData());
     const QStringList paths = localFolders(event->mimeData());
     if (!index.isValid() || (ids.isEmpty() && paths.isEmpty())) {
@@ -250,6 +318,7 @@ void GroupListView::paintEvent(QPaintEvent *event)
         painter.setPen(QPen(palette().color(QPalette::Active, QPalette::Highlight), 2));
         painter.drawPath(path);
     }
+    ReorderDrop::paint(painter, this, m_reorderTarget);
     if (m_model->rowCount() > 0)
         return;
     QColor color = palette().color(QPalette::Text);

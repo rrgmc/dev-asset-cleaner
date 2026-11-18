@@ -94,7 +94,8 @@ private:
     void moveGroup(int delta);
     void moveFoldersToGroup(const QList<QUuid> &folderIds, const QUuid &groupId);
     void fillMoveMenu(QMenu *menu, const QUuid &folderId);
-    // Adds a submenu with a choice for each sort order.
+    void updateSortButtons();
+    // Adds a submenu with a choice for each sort order. The group's parent is the submenu.
     QActionGroup *addSortMenu(QMenu *parent, const QString &title,
                               const std::function<void(SortOrder)> &apply);
     void showGroupContextMenu(const QUuid &id, const QPoint &globalPos);
@@ -140,4 +141,6 @@ private:
     QList<QAction *> m_groupMoveActions;
     QActionGroup *m_groupSortActions = nullptr;
     QActionGroup *m_folderSortActions = nullptr;
+    QAction *m_groupSortButton = nullptr;  // the toolbar's sort buttons
+    QAction *m_folderSortButton = nullptr;
 };

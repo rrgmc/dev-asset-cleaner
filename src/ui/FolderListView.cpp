@@ -31,8 +31,8 @@ FolderListView::FolderListView(FolderModel *model, QWidget *parent)
 
 void FolderListView::startDrag(Qt::DropActions)
 {
-    // Only the group list takes these drops, and it moves the folder itself: the model's rows
-    // must not be removed by a Move drop, as QAbstractItemView would do.
+    // The group list and this list take these drops and move the folder in the store: the
+    // model's rows must not be removed by a Move drop, as QAbstractItemView would do.
     const QModelIndex index = currentIndex();
     if (!index.isValid())
         return;
@@ -122,9 +122,38 @@ QStringList localFolders(const QMimeData *mime)
 }
 } // namespace
 
+QUuid FolderListView::reorderedFolder(const QDropEvent *event) const
+{
+    if (event->source() != this || m_model->sortOrder() != SortOrder::Manual
+        || !event->mimeData()->hasFormat(GroupListView::folderMimeType()))
+        return {};
+    return QUuid::fromString(
+        QString::fromLatin1(event->mimeData()->data(GroupListView::folderMimeType())));
+}
+
+ReorderDrop::Target FolderListView::reorderTarget(const QDropEvent *event) const
+{
+    const QUuid id = reorderedFolder(event);
+    if (id.isNull())
+        return {};
+    const ReorderDrop::Target target =
+        ReorderDrop::targetAt(this, event->position().toPoint(), m_model->rowCount());
+    if (!target.isValid() || m_model->groupIdAt(target.row) != m_model->groupIdAt(m_model->rowOf(id)))
+        return {};
+    return target;
+}
+
+void FolderListView::setReorderTarget(const ReorderDrop::Target &target)
+{
+    if (target == m_reorderTarget)
+        return;
+    m_reorderTarget = target;
+    viewport()->update();
+}
+
 void FolderListView::dragEnterEvent(QDragEnterEvent *event)
 {
-    if (!localFolders(event->mimeData()).isEmpty())
+    if (!localFolders(event->mimeData()).isEmpty() || !reorderedFolder(event).isNull())
         event->acceptProposedAction();
     else
         event->ignore();
@@ -132,14 +161,34 @@ void FolderListView::dragEnterEvent(QDragEnterEvent *event)
 
 void FolderListView::dragMoveEvent(QDragMoveEvent *event)
 {
-    if (!localFolders(event->mimeData()).isEmpty())
+    if (!localFolders(event->mimeData()).isEmpty()) {
+        setReorderTarget({});
+        event->acceptProposedAction();
+        return;
+    }
+    const ReorderDrop::Target target = reorderTarget(event);
+    setReorderTarget(target);
+    if (target.isValid())
         event->acceptProposedAction();
     else
         event->ignore();
 }
 
+void FolderListView::dragLeaveEvent(QDragLeaveEvent *event)
+{
+    setReorderTarget({});
+    CleanableListView::dragLeaveEvent(event);
+}
+
 void FolderListView::dropEvent(QDropEvent *event)
 {
+    setReorderTarget({});
+    const ReorderDrop::Target target = reorderTarget(event);
+    if (target.isValid()) {
+        event->acceptProposedAction();
+        emit folderMoveRequested(reorderedFolder(event), m_model->idAt(target.row), target.after);
+        return;
+    }
     const QStringList paths = localFolders(event->mimeData());
     if (paths.isEmpty()) {
         event->ignore();
@@ -152,9 +201,10 @@ void FolderListView::dropEvent(QDropEvent *event)
 void FolderListView::paintEvent(QPaintEvent *event)
 {
     QListView::paintEvent(event);
+    QPainter painter(viewport());
+    ReorderDrop::paint(painter, this, m_reorderTarget);
     if (m_model->rowCount() > 0)
         return;
-    QPainter painter(viewport());
     QColor color = palette().color(QPalette::Text);
     color.setAlphaF(0.45);
     painter.setPen(color);
