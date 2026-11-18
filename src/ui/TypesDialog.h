@@ -4,7 +4,6 @@
 
 #include <QDialog>
 
-class QComboBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -43,7 +42,6 @@ private:
     QPushButton *m_remove;
     QLineEdit *m_name;
     QLineEdit *m_description;
-    QComboBox *m_mode;
     QTableWidget *m_rules;
     QPushButton *m_addRule;
     QPushButton *m_removeRule;

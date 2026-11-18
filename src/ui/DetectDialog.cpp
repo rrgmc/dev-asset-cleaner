@@ -1,5 +1,6 @@
 #include "DetectDialog.h"
 
+#include "ExcludeDialog.h"
 #include "Format.h"
 #include "ItemCheckStyle.h"
 #include "model/Store.h"
@@ -27,6 +28,8 @@ DetectDialog::DetectDialog(Store *store, const QString &path, QWidget *parent)
     , m_store(store)
     , m_path(new QLineEdit(QDir::toNativeSeparators(path), this))
     , m_search(new QPushButton(tr("&Search"), this))
+    , m_exclude(new QPushButton(tr("E&xclude…"), this))
+    , m_excludeLabel(new QLabel(this))
     , m_status(new QLabel(this))
     , m_results(new QTreeWidget(this))
     , m_autoStart(!path.isEmpty())
@@ -57,6 +60,18 @@ DetectDialog::DetectDialog(Store *store, const QString &path, QWidget *parent)
     hint->setWordWrap(true);
     m_status->setWordWrap(true);
 
+    m_excludeLabel->setWordWrap(true);
+    m_excludeLabel->setTextFormat(Qt::PlainText);
+    connect(m_exclude, &QPushButton::clicked, this, &DetectDialog::chooseExcludes);
+    auto *excludeRow = new QHBoxLayout;
+    excludeRow->addWidget(m_excludeLabel, 1);
+    excludeRow->addWidget(m_exclude);
+    if (const Folder *f = store->folderWithPath(this->path())) {
+        m_excludes = f->excludes;
+        m_excludesPath = this->path();
+    }
+    m_excludeLabel->setText(tr("Excluded folders: %1").arg(ExcludeDialog::summary(m_excludes)));
+
     m_results->setHeaderLabels({tr("Type"), tr("Folders"), tr("Size")});
     m_results->header()->setStretchLastSection(false);
     m_results->header()->setSectionResizeMode(0, QHeaderView::Stretch);
@@ -77,6 +92,7 @@ DetectDialog::DetectDialog(Store *store, const QString &path, QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->addLayout(pathRow);
     layout->addWidget(hint);
+    layout->addLayout(excludeRow);
     layout->addWidget(m_results, 1);
     layout->addWidget(m_status);
     layout->addWidget(buttons);
@@ -129,18 +145,48 @@ void DetectDialog::browse()
     start();
 }
 
+QStringList DetectDialog::excludes() const
+{
+    return m_excludesPath == path() ? m_excludes : QStringList();
+}
+
+void DetectDialog::setExcludes(const QStringList &excludes)
+{
+    m_excludes = excludes;
+    m_excludesPath = path();
+    m_excludeLabel->setText(tr("Excluded folders: %1").arg(ExcludeDialog::summary(m_excludes)));
+}
+
+void DetectDialog::chooseExcludes()
+{
+    if (m_watcher.isRunning() || path().isEmpty())
+        return;
+    ExcludeDialog dialog(path(), m_excludesPath == path() ? m_excludes : QStringList(), this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    setExcludes(dialog.excludes());
+    start();
+}
+
 void DetectDialog::start()
 {
     if (m_watcher.isRunning() || path().isEmpty())
         return;
+    const QString folder = path();
+    // Exclusions belong to one folder: another one starts with its own, or none.
+    if (m_excludesPath != folder) {
+        const Folder *f = m_store->folderWithPath(folder);
+        setExcludes(f ? f->excludes : QStringList());
+    }
     m_results->clear();
     m_status->setText(tr("Searching…"));
     m_cancel = std::make_shared<std::atomic_bool>(false);
     const auto cancelFlag = m_cancel;
-    const QString folder = path();
     const QList<CleanerType> types = m_store->types();
-    m_watcher.setFuture(QtConcurrent::run([folder, types, cancelFlag] {
-        return Scanner::detect(folder, types, [cancelFlag] { return cancelFlag->load(); });
+    const QStringList excludes = m_excludes;
+    m_watcher.setFuture(QtConcurrent::run([folder, types, excludes, cancelFlag] {
+        return Scanner::detect(folder, types, [cancelFlag] { return cancelFlag->load(); },
+                               excludes);
     }));
     m_ok->setText(m_store->folderWithPath(folder) ? tr("&Use these types") : tr("&Add folder"));
     updateButtons();
@@ -161,8 +207,8 @@ void DetectDialog::finished()
     } else if (!result.error.isEmpty()) {
         m_status->setText(result.error);
     } else if (result.detections.isEmpty()) {
-        m_status->setText(tr("Nothing found in %1. \"Folder contents\" is still available in the "
-                             "folder's settings.")
+        m_status->setText(tr("The folder holds %1, but no build outputs or dependency folders "
+                             "were found in it.")
                               .arg(Format::bytes(result.totalBytes)));
     } else {
         m_status->setText(tr("The folder holds %1. Cleaning with every type found would free %2.")
@@ -210,5 +256,6 @@ void DetectDialog::updateButtons()
     m_search->setText(running ? tr("S&top") : tr("&Search"));
     m_search->setEnabled(running || !m_path->text().trimmed().isEmpty());
     m_path->setEnabled(!running);
+    m_exclude->setEnabled(!running && !m_path->text().trimmed().isEmpty());
     m_ok->setEnabled(!running && !typeIds().isEmpty());
 }

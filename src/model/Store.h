@@ -77,7 +77,7 @@ public:
     void setCustomTypes(const QList<CleanerType> &types);
     // The type with this id, or nullptr when it no longer exists.
     const CleanerType *type(const QString &id) const;
-    // The folder's types that still exist. "Folder contents" when it has none.
+    // The types of a Matching folder that still exist; none for a Whole folder.
     QList<CleanerType> typesFor(const Folder &folder) const;
 
     const Settings &settings() const { return m_settings; }

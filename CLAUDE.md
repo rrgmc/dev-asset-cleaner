@@ -40,15 +40,21 @@ work in the main checkout's working tree, which stays on `master`.
   because Qt Test's plain-text logger prints nothing to a pipe on Windows.
 - Starting the app while another instance runs only tells that instance to show itself
   (`SingleInstance`). To try a build without touching the user's data, set `DAC_DATA_FILE` to a
-  scratch file. Never point a test or a trial run at a real folder with "Folder contents": it
+  scratch file. Never point a test or a trial run at a real folder as a Whole folder: it
   deletes everything in it.
 
 ## Layout
 
 - `src/model`: `CleanerType` (rules and the built-in types), `Group`, `Folder`, `Store` (JSON
-  persistence, debounced atomic saves). No widgets. Every folder belongs to a group
+  persistence, debounced atomic saves). No widgets. A folder's `Folder::Kind` says what
+  cleaning deletes: everything in it (`Whole`) or what its types match (`Matching`). More
+  kinds may come; each needs an entry in `Folder::kinds`, its id, name and description, and
+  its scan in `Monitor`'s `folderScan`. An unknown kind id loads as `Matching`, which deletes
+  nothing without types. Every folder belongs to a group
   (`Folder::groupId`); the file nests folders in their groups (version 2), and a version 1
-  file's top-level folders load into a "Default" group. A new file starts with an empty
+  file's top-level folders load into a "Default" group. Version 3 added the kind; before it,
+  "Folder contents" was a cleaner type (`contents`, or a custom type with mode `contents`),
+  and `Store::load` turns folders that used it, or had no types, into Whole folders. A new file starts with an empty
   "Default" group, which is not special: deleting every group is kept.
 - `src/clean`: `Scanner` (walks a folder, finds what its types match, deletes it; `detect`
   reports per type what each rule-based type would delete, for `DetectDialog`),
@@ -73,10 +79,13 @@ work in the main checkout's working tree, which stays on `master`.
 
 ## Things to keep in mind
 
-- Safety comes first. `Scanner::unsafeReason` refuses "Folder contents" on a drive root, the
-  home folder and folders above it; `Monitor::clean` checks it. `removeTree` never follows
-  symbolic links or junctions. Cleaning scans again before it deletes, so it never deletes from
-  an old result.
+- Safety comes first. `Scanner::unsafeWholeReason` refuses a Whole folder on a drive root, the
+  home folder and folders above it; `Monitor::clean` checks it. Nothing falls back to
+  deleting everything: a Matching folder without types deletes nothing, and detection only
+  makes Matching folders. `removeTree` never follows symbolic links or junctions. Cleaning
+  scans again before it deletes, so it never deletes from an old result.
+- A folder's `excludes` names first-level subfolders that `scan`, `scanWhole` and `detect`
+  size but never match or delete, for every kind; `ExcludeDialog` edits them.
 - Built-in types are code (`BuiltInTypes::all`), not data. Custom types are stored; a stored
   type with a built-in id is ignored. "All programming languages" is the union of the other
   built-in rules, and a test checks that.

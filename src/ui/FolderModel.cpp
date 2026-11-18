@@ -53,6 +53,8 @@ QVariant FolderModel::data(const QModelIndex &index, int role) const
     case PathRole:
         return QDir::toNativeSeparators(f->path);
     case TypesRole: {
+        if (f->kind != Folder::Kind::Matching)
+            return Folder::kindName(f->kind);
         QStringList names;
         for (const CleanerType &t : m_store->typesFor(*f))
             names.append(t.name);

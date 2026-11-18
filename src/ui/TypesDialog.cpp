@@ -1,6 +1,5 @@
 #include "TypesDialog.h"
 
-#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -36,7 +35,6 @@ TypesDialog::TypesDialog(const QList<CleanerType> &customTypes, QWidget *parent)
     , m_remove(new QPushButton(tr("&Delete"), this))
     , m_name(new QLineEdit(this))
     , m_description(new QLineEdit(this))
-    , m_mode(new QComboBox(this))
     , m_rules(new QTableWidget(0, 2, this))
     , m_addRule(new QPushButton(tr("Add &rule"), this))
     , m_removeRule(new QPushButton(tr("Remove r&ule"), this))
@@ -77,9 +75,6 @@ TypesDialog::TypesDialog(const QList<CleanerType> &customTypes, QWidget *parent)
     left->addWidget(m_list, 1);
     left->addLayout(listButtons);
 
-    m_mode->addItem(tr("Matching folders, at any depth"), int(CleanerType::Mode::Rules));
-    m_mode->addItem(tr("Everything in the folder"), int(CleanerType::Mode::Contents));
-
     m_rules->setHorizontalHeaderLabels({tr("Folder name"), tr("Only next to (comma-separated)")});
     m_rules->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
     m_rules->horizontalHeader()->setStretchLastSection(true);
@@ -108,7 +103,6 @@ TypesDialog::TypesDialog(const QList<CleanerType> &customTypes, QWidget *parent)
     form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     form->addRow(tr("&Name:"), m_name);
     form->addRow(tr("D&escription:"), m_description);
-    form->addRow(tr("&Cleans:"), m_mode);
     auto *right = new QVBoxLayout;
     right->addWidget(m_readOnly);
     right->addLayout(form);
@@ -132,7 +126,6 @@ TypesDialog::TypesDialog(const QList<CleanerType> &customTypes, QWidget *parent)
     layout->addWidget(buttons);
 
     connect(m_list, &QListWidget::currentRowChanged, this, &TypesDialog::currentRowChanged);
-    connect(m_mode, &QComboBox::currentIndexChanged, this, &TypesDialog::updateEnabled);
     connect(m_name, &QLineEdit::editingFinished, this, [this] {
         storeEditor();
         if (QListWidgetItem *item = m_list->currentItem(); item && currentCustom())
@@ -187,7 +180,6 @@ void TypesDialog::loadEditor(const CleanerType &type)
     m_loading = true;
     m_name->setText(type.name);
     m_description->setText(type.description);
-    m_mode->setCurrentIndex(m_mode->findData(int(type.mode)));
     m_rules->setRowCount(0);
     for (const CleanRule &r : type.rules) {
         const int row = m_rules->rowCount();
@@ -219,7 +211,6 @@ void TypesDialog::storeEditor()
         return;
     t->name = m_name->text().trimmed().isEmpty() ? tr("Unnamed type") : m_name->text().trimmed();
     t->description = m_description->text().trimmed();
-    t->mode = CleanerType::Mode(m_mode->currentData().toInt());
     t->rules.clear();
     for (int row = 0; row < m_rules->rowCount(); ++row) {
         const QTableWidgetItem *pattern = m_rules->item(row, 0);
@@ -273,15 +264,12 @@ void TypesDialog::removeRule()
 void TypesDialog::updateEnabled()
 {
     const bool editable = currentCustom() != nullptr;
-    const bool rules = CleanerType::Mode(m_mode->currentData().toInt()) == CleanerType::Mode::Rules;
     m_name->setReadOnly(!editable);
     m_description->setReadOnly(!editable);
-    m_mode->setEnabled(editable);
-    m_rules->setEnabled(rules);
     m_rules->setEditTriggers(editable ? QAbstractItemView::AllEditTriggers
                                       : QAbstractItemView::NoEditTriggers);
-    m_addRule->setEnabled(editable && rules);
-    m_removeRule->setEnabled(editable && rules);
+    m_addRule->setEnabled(editable);
+    m_removeRule->setEnabled(editable);
     m_remove->setEnabled(editable);
     m_duplicate->setEnabled(!m_currentId.isEmpty());
 }

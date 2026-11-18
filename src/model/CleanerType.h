@@ -22,20 +22,13 @@ struct CleanRule
     friend bool operator==(const CleanRule &, const CleanRule &) = default;
 };
 
-// What cleaning a folder deletes.
-//
-// - Contents: everything inside the folder, but not the folder itself. For caches such as the
-//   Go module cache or a downloads folder.
-// - Rules: only the subfolders, at any depth, that match one of the rules. For a folder of
-//   projects, where only build outputs and dependency folders should go.
+// What cleaning a Matching folder deletes: the subfolders, at any depth, that match one of the
+// rules. Deleting everything in a folder is not a type but a kind of folder (Folder::Kind).
 struct CleanerType
 {
-    enum class Mode { Contents, Rules };
-
     QString id;  // stable; built-in ids are fixed, custom ones are UUIDs
     QString name;
     QString description;
-    Mode mode = Mode::Rules;
     QList<CleanRule> rules;
     bool builtIn = false;  // not stored; built-in types come from the code
 
@@ -46,14 +39,13 @@ struct CleanerType
 };
 
 QJsonArray cleanerTypesToJson(const QList<CleanerType> &types);
+// Skips types without an id, and types stored with the old mode "contents", which deleted
+// everything in a folder (see Store::load).
 QList<CleanerType> cleanerTypesFromJson(const QJsonArray &array);
 
 namespace BuiltInTypes {
 
-// The id of the "Folder contents" type, the default for new folders.
-QString contentsId();
-
-// The types that ship with the app, "Folder contents" first.
+// The types that ship with the app.
 const QList<CleanerType> &all();
 
 } // namespace BuiltInTypes

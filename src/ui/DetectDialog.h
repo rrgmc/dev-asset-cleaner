@@ -29,12 +29,17 @@ public:
     QString path() const;
     // The types left checked, in the order of Store::types().
     QStringList typeIds() const;
+    // The first-level subfolders left out of the search, and of cleaning once added. They start
+    // as the excluded folders of the folder in the list with this path, if there is one.
+    QStringList excludes() const;
+    void setExcludes(const QStringList &excludes);
 
 protected:
     void showEvent(QShowEvent *event) override;
 
 private:
     void browse();
+    void chooseExcludes();
     void start();
     void cancel();
     void finished();
@@ -43,6 +48,10 @@ private:
     Store *m_store;
     QLineEdit *m_path;
     QPushButton *m_search;
+    QPushButton *m_exclude;
+    QLabel *m_excludeLabel;
+    QStringList m_excludes;
+    QString m_excludesPath;  // the folder m_excludes belong to
     QLabel *m_status;
     QTreeWidget *m_results;
     QPushButton *m_ok;

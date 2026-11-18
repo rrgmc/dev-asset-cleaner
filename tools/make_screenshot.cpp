@@ -45,7 +45,7 @@ struct Sample
 {
     QString name;
     QString path;
-    QStringList types;
+    QStringList types;  // none: a Whole folder
     qint64 total;
     qint64 cleanable;
     qint64 warn = 0;
@@ -59,12 +59,12 @@ void fill(Store &store, Monitor &monitor)
          84 * GB, 37'400 * MB, 60 * GB},
         {QStringLiteral("Rust experiments"), QStringLiteral("src/rust"), {QStringLiteral("rust")},
          21'300 * MB, 19'800 * MB},
-        {QStringLiteral("Go module cache"), QStringLiteral("go/pkg/mod"),
-         {QStringLiteral("contents")}, 6'200 * MB, 6'200 * MB, 0, 1},
+        {QStringLiteral("Go module cache"), QStringLiteral("go/pkg/mod"), {}, 6'200 * MB,
+         6'200 * MB, 0, 1},
         {QStringLiteral("Xcode derived data"), QStringLiteral("Library/Developer/Xcode/DerivedData"),
-         {QStringLiteral("contents")}, 14'700 * MB, 14'700 * MB, 0, 1},
-        {QStringLiteral("npm cache"), QStringLiteral(".npm/_cacache"), {QStringLiteral("contents")},
-         2'100 * MB, 2'100 * MB, 0, 1},
+         {}, 14'700 * MB, 14'700 * MB, 0, 1},
+        {QStringLiteral("npm cache"), QStringLiteral(".npm/_cacache"), {}, 2'100 * MB, 2'100 * MB,
+         0, 1},
         {QStringLiteral("Work"), QStringLiteral("Work"),
          {QStringLiteral("node"), QStringLiteral("python")}, 12'800 * MB, 0},
     };
@@ -77,6 +77,7 @@ void fill(Store &store, Monitor &monitor)
         Folder f;
         f.name = s.name;
         f.path = Home + s.path;
+        f.kind = s.types.isEmpty() ? Folder::Kind::Whole : Folder::Kind::Matching;
         f.typeIds = s.types;
         f.warnBytes = s.warn;
         f.groupId = groups.at(s.group);

@@ -30,8 +30,7 @@ QJsonObject CleanerType::toJson() const
         {QStringLiteral("id"), id},
         {QStringLiteral("name"), name},
         {QStringLiteral("description"), description},
-        {QStringLiteral("mode"),
-         mode == Mode::Contents ? QStringLiteral("contents") : QStringLiteral("rules")},
+        {QStringLiteral("mode"), QStringLiteral("rules")},  // for older versions
         {QStringLiteral("rules"), ruleArray},
     };
 }
@@ -42,9 +41,6 @@ CleanerType CleanerType::fromJson(const QJsonObject &obj)
     type.id = obj.value(QStringLiteral("id")).toString();
     type.name = obj.value(QStringLiteral("name")).toString();
     type.description = obj.value(QStringLiteral("description")).toString();
-    type.mode = obj.value(QStringLiteral("mode")).toString() == QLatin1String("contents")
-                    ? Mode::Contents
-                    : Mode::Rules;
     for (const QJsonValue &v : obj.value(QStringLiteral("rules")).toArray()) {
         if (v.isObject()) {
             const CleanRule rule = CleanRule::fromJson(v.toObject());
@@ -67,7 +63,8 @@ QList<CleanerType> cleanerTypesFromJson(const QJsonArray &array)
 {
     QList<CleanerType> types;
     for (const QJsonValue &v : array) {
-        if (!v.isObject())
+        if (!v.isObject()
+            || v.toObject().value(QStringLiteral("mode")).toString() == QLatin1String("contents"))
             continue;
         CleanerType t = CleanerType::fromJson(v.toObject());
         if (!t.id.isEmpty())
@@ -77,11 +74,6 @@ QList<CleanerType> cleanerTypesFromJson(const QJsonArray &array)
 }
 
 namespace BuiltInTypes {
-
-QString contentsId()
-{
-    return QStringLiteral("contents");
-}
 
 namespace {
 
@@ -97,7 +89,6 @@ CleanerType rulesType(const char *id, const QString &name, const QString &descri
     t.id = QString::fromLatin1(id);
     t.name = name;
     t.description = description;
-    t.mode = CleanerType::Mode::Rules;
     t.rules = std::move(rules);
     t.builtIn = true;
     return t;
@@ -120,14 +111,6 @@ QList<CleanerType> build()
                              QStringLiteral("*.vbproj")};
 
     QList<CleanerType> types;
-
-    CleanerType contents;
-    contents.id = contentsId();
-    contents.name = tr("Folder contents");
-    contents.description = tr("Everything inside the folder. The folder itself stays.");
-    contents.mode = CleanerType::Mode::Contents;
-    contents.builtIn = true;
-    types.append(contents);
 
     types.append(rulesType("rust", tr("Rust"), tr("Cargo's target folders."),
                            {rule("target", {QStringLiteral("Cargo.toml")})}));

@@ -45,6 +45,7 @@ endif()
 qt_add_library(dac_ui STATIC
     src/ui/AppInfo.h
     src/ui/DetectDialog.h src/ui/DetectDialog.cpp
+    src/ui/ExcludeDialog.h src/ui/ExcludeDialog.cpp
     src/ui/FolderDelegate.h src/ui/FolderDelegate.cpp
     src/ui/FolderDialog.h src/ui/FolderDialog.cpp
     src/ui/FolderListView.h src/ui/FolderListView.cpp

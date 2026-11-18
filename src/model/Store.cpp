@@ -11,8 +11,9 @@
 #include <algorithm>
 
 namespace {
-// 1: folders at the top level. 2: folders nested in groups.
-constexpr int FileVersion = 2;
+// 1: folders at the top level. 2: folders nested in groups. 3: folders have a kind, and
+// "Folder contents" is no longer a cleaner type.
+constexpr int FileVersion = 3;
 constexpr int SaveDelayMs = 300;
 
 double toJsonNumber(qint64 value)
@@ -92,7 +93,8 @@ bool Store::load(QString *error)
     m_settings.totalWarnBytes = static_cast<qint64>(
         settings.value(QStringLiteral("totalWarnBytes")).toDouble(toJsonNumber(defaults.totalWarnBytes)));
 
-    for (CleanerType t : cleanerTypesFromJson(root.value(QStringLiteral("types")).toArray())) {
+    const QJsonArray types = root.value(QStringLiteral("types")).toArray();
+    for (CleanerType t : cleanerTypesFromJson(types)) {
         // A custom type cannot take a built-in id.
         if (std::none_of(BuiltInTypes::all().cbegin(), BuiltInTypes::all().cend(),
                          [&t](const CleanerType &b) { return b.id == t.id; })) {
@@ -100,11 +102,29 @@ bool Store::load(QString *error)
             m_customTypes.append(t);
         }
     }
-    const auto addFolders = [this](const QJsonArray &folders, const QUuid &groupId) {
+    // Before version 3, deleting everything in a folder was a cleaner type: the built-in
+    // "contents", or a custom type with that mode. Such folders, and folders with no types,
+    // become Whole folders.
+    QStringList contentsTypes{QStringLiteral("contents")};
+    for (const QJsonValue &v : types) {
+        if (v.toObject().value(QStringLiteral("mode")).toString() == QLatin1String("contents"))
+            contentsTypes.append(v.toObject().value(QStringLiteral("id")).toString());
+    }
+    const auto addFolders = [this, &contentsTypes](const QJsonArray &folders, const QUuid &groupId) {
         for (const QJsonValue &v : folders) {
             if (!v.isObject())
                 continue;
             Folder f = Folder::fromJson(v.toObject());
+            if (!v.toObject().contains(QStringLiteral("kind"))) {
+                const bool whole = f.typeIds.isEmpty()
+                                   || std::any_of(f.typeIds.cbegin(), f.typeIds.cend(),
+                                                  [&contentsTypes](const QString &id) {
+                                                      return contentsTypes.contains(id);
+                                                  });
+                f.kind = whole ? Folder::Kind::Whole : Folder::Kind::Matching;
+                if (whole)
+                    f.typeIds.clear();
+            }
             if (rowOf(f.id) >= 0)
                 f.id = QUuid::createUuid();
             f.groupId = groupId;
@@ -351,12 +371,12 @@ const CleanerType *Store::type(const QString &id) const
 QList<CleanerType> Store::typesFor(const Folder &folder) const
 {
     QList<CleanerType> result;
+    if (folder.kind != Folder::Kind::Matching)
+        return result;
     for (const QString &id : folder.typeIds) {
         if (const CleanerType *t = type(id))
             result.append(*t);
     }
-    if (result.isEmpty())
-        result.append(*type(BuiltInTypes::contentsId()));
     return result;
 }
 

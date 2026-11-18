@@ -1,9 +1,11 @@
 #include "FolderDialog.h"
 
+#include "ExcludeDialog.h"
 #include "ItemCheckStyle.h"
 #include "SizeSpinBox.h"
 #include "model/Store.h"
 
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
@@ -14,7 +16,6 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
-#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 namespace {
@@ -26,11 +27,14 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     , m_folder(folder)
     , m_name(new QLineEdit(folder.name, this))
     , m_path(new QLineEdit(QDir::toNativeSeparators(folder.path), this))
+    , m_kind(new QComboBox(this))
+    , m_kindHint(new QLabel(this))
     , m_types(new QListWidget(this))
+    , m_excludes(new QLabel(ExcludeDialog::summary(folder.excludes), this))
     , m_warn(new SizeSpinBox(this))
 {
     setWindowTitle(tr("Folder"));
-    resize(520, 520);
+    resize(520, 580);
 
     auto *browse = new QPushButton(tr("&Browse…"), this);
     connect(browse, &QPushButton::clicked, this, &FolderDialog::browse);
@@ -38,26 +42,34 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     pathRow->addWidget(m_path, 1);
     pathRow->addWidget(browse);
 
-    const QStringList selected =
-        folder.typeIds.isEmpty() ? QStringList{BuiltInTypes::contentsId()} : folder.typeIds;
+    for (Folder::Kind k : Folder::kinds())
+        m_kind->addItem(Folder::kindName(k), static_cast<int>(k));
+    m_kind->setCurrentIndex(m_kind->findData(static_cast<int>(folder.kind)));
+    m_kindHint->setWordWrap(true);
+    connect(m_kind, &QComboBox::currentIndexChanged, this, &FolderDialog::updateOk);
+
     for (const CleanerType &t : store->types()) {
         auto *item = new QListWidgetItem(t.name, m_types);
         item->setData(TypeIdRole, t.id);
         item->setToolTip(t.description);
         item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable | Qt::ItemIsSelectable);
-        item->setCheckState(selected.contains(t.id) ? Qt::Checked : Qt::Unchecked);
+        item->setCheckState(folder.typeIds.contains(t.id) ? Qt::Checked : Qt::Unchecked);
     }
     ItemCheckStyle::apply(m_types);
-    connect(m_types, &QListWidget::itemChanged, this,
-            [this](QListWidgetItem *item) { typeChanged(m_types->row(item)); });
+    connect(m_types, &QListWidget::itemChanged, this, &FolderDialog::updateOk);
 
     m_warn->setBytes(folder.warnBytes);
 
-    auto *typesHint = new QLabel(
-        tr("\"Folder contents\" deletes everything inside the folder. The other types delete only "
-           "the matching build and dependency folders, at any depth."),
-        this);
-    typesHint->setWordWrap(true);
+    m_excludes->setWordWrap(true);
+    m_excludes->setTextFormat(Qt::PlainText);
+    auto *chooseExcludes = new QPushButton(tr("&Choose…"), this);
+    connect(chooseExcludes, &QPushButton::clicked, this, &FolderDialog::chooseExcludes);
+    auto *excludeRow = new QHBoxLayout;
+    excludeRow->addWidget(m_excludes, 1);
+    excludeRow->addWidget(chooseExcludes);
+    auto *excludeHint =
+        new QLabel(tr("Folders directly inside this one that cleaning never touches."), this);
+    excludeHint->setWordWrap(true);
 
     auto *form = new QFormLayout;
     // macOS keeps fields at their size hint by default, which leaves the text fields narrow.
@@ -67,8 +79,13 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     auto *pathLabel = new QLabel(tr("&Path:"), this);
     pathLabel->setBuddy(m_path);
     form->addRow(pathLabel, pathRow);
+    form->addRow(tr("&Kind:"), m_kind);
+    form->addRow(QString(), m_kindHint);
     form->addRow(tr("&Types:"), m_types);
-    form->addRow(QString(), typesHint);
+    auto *excludeLabel = new QLabel(tr("&Excluded:"), this);
+    excludeLabel->setBuddy(chooseExcludes);
+    form->addRow(excludeLabel, excludeRow);
+    form->addRow(QString(), excludeHint);
     form->addRow(tr("&Warn above:"), m_warn);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -84,6 +101,11 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     updateOk();
 }
 
+Folder::Kind FolderDialog::kind() const
+{
+    return static_cast<Folder::Kind>(m_kind->currentData().toInt());
+}
+
 Folder FolderDialog::folder() const
 {
     Folder f = m_folder;
@@ -91,13 +113,26 @@ Folder FolderDialog::folder() const
     f.path = QDir::cleanPath(QDir::fromNativeSeparators(m_path->text().trimmed()));
     if (f.name.isEmpty())
         f.name = QFileInfo(f.path).fileName();
+    f.kind = kind();
     f.typeIds.clear();
-    for (int i = 0; i < m_types->count(); ++i) {
-        if (m_types->item(i)->checkState() == Qt::Checked)
-            f.typeIds.append(m_types->item(i)->data(TypeIdRole).toString());
+    if (f.kind == Folder::Kind::Matching) {
+        for (int i = 0; i < m_types->count(); ++i) {
+            if (m_types->item(i)->checkState() == Qt::Checked)
+                f.typeIds.append(m_types->item(i)->data(TypeIdRole).toString());
+        }
     }
     f.warnBytes = m_warn->bytes();
     return f;
+}
+
+void FolderDialog::chooseExcludes()
+{
+    const QString path = QDir::cleanPath(QDir::fromNativeSeparators(m_path->text().trimmed()));
+    ExcludeDialog dialog(path, m_folder.excludes, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    m_folder.excludes = dialog.excludes();
+    m_excludes->setText(ExcludeDialog::summary(m_folder.excludes));
 }
 
 void FolderDialog::browse()
@@ -110,30 +145,13 @@ void FolderDialog::browse()
         m_name->setText(QFileInfo(dir).fileName());
 }
 
-void FolderDialog::typeChanged(int row)
-{
-    // "Folder contents" already covers everything, so it excludes the other types.
-    QListWidgetItem *changed = m_types->item(row);
-    if (!changed || changed->checkState() != Qt::Checked)
-        return updateOk();
-    const bool isContents = changed->data(TypeIdRole).toString() == BuiltInTypes::contentsId();
-    const QSignalBlocker blocker(m_types);
-    for (int i = 0; i < m_types->count(); ++i) {
-        QListWidgetItem *item = m_types->item(i);
-        if (item == changed)
-            continue;
-        const bool otherIsContents = item->data(TypeIdRole).toString() == BuiltInTypes::contentsId();
-        if (isContents || otherIsContents)
-            item->setCheckState(Qt::Unchecked);
-    }
-    m_types->viewport()->update();
-    updateOk();
-}
-
 void FolderDialog::updateOk()
 {
-    bool anyType = false;
-    for (int i = 0; i < m_types->count(); ++i)
-        anyType = anyType || m_types->item(i)->checkState() == Qt::Checked;
-    m_ok->setEnabled(anyType && !m_path->text().trimmed().isEmpty());
+    const bool matching = kind() == Folder::Kind::Matching;
+    m_kindHint->setText(Folder::kindDescription(kind()));
+    m_types->setEnabled(matching);
+    bool ready = !matching;
+    for (int i = 0; i < m_types->count() && !ready; ++i)
+        ready = m_types->item(i)->checkState() == Qt::Checked;
+    m_ok->setEnabled(ready && !m_path->text().trimmed().isEmpty());
 }
