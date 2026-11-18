@@ -343,9 +343,28 @@ void MainWindow::createActions()
     toolbar->addSeparator();
     addButton(types, tr("Cleaner types"));
     addButton(settings, tr("Settings"));
+#ifndef Q_OS_MACOS
+    // The usage panel sits at the right edge; on macOS the filter field takes that place.
+    auto *usageSpacer = new QWidget(toolbar);
+    usageSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    toolbar->addWidget(usageSpacer);
+#endif
     toolbar->addSeparator();
     m_usage = new UsagePanel(toolbar);
     toolbar->addWidget(m_usage);
+
+    // The usage panel sets the toolbar's height, which stretches the buttons. Bigger icons and
+    // a matching width keep them square.
+    const int side = m_usage->sizeHint().height();
+    // Windows draws its theme icons in steps of 4 px (16, 20, 24); in between they draw smaller.
+    const int icon = qMax(16, (side / 2 - 2) / 4 * 4);
+    toolbar->setIconSize(QSize(icon, icon));
+    // A button with a menu arrow gets the arrow's width on top, so its icon has the same square.
+    const int plainWidth = toolbar->widgetForAction(edit)->sizeHint().width();
+    for (QAction *action : toolbar->actions()) {
+        if (auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(action)))
+            button->setMinimumWidth(side + button->sizeHint().width() - plainWidth);
+    }
 
     // Tooltips name the command and its shortcut.
     for (QAction *action : toolbar->actions()) {
@@ -364,7 +383,6 @@ void MainWindow::createActions()
 
 #ifdef Q_OS_MACOS
     setUnifiedTitleAndToolBarOnMac(true);
-    toolbar->setIconSize(QSize(18, 18));
     auto *spacer = new QWidget(toolbar);
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     toolbar->addWidget(spacer);
