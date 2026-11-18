@@ -1,5 +1,7 @@
 #include "Scanner.h"
 
+#include "SystemFolders.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
@@ -343,13 +345,50 @@ bool removeTree(const QString &path, QString *error)
     return ok;
 }
 
-CleanResult clean(const QList<ScanItem> &items, const CancelCheck &canceled)
+bool moveToTrash(const QString &path, QString *error, bool *deleted)
+{
+    if (deleted)
+        *deleted = false;
+    QFile file(path);
+    bool moved = file.moveToTrash();
+    const QFileInfo info(path);
+    if (!moved && info.isDir() && !isLink(info)) {
+        // Moving a folder to another parent needs write access to the folder itself on macOS
+        // (to update its ".."), which Go's read-only module cache lacks.
+        makeWritable(path, true);
+        moved = file.moveToTrash();
+    }
+    if (moved) {
+        // On success the file takes its path in the trash. Nothing there means it was deleted.
+        if (deleted) {
+            const QFileInfo trashed(file.fileName());
+            *deleted = file.fileName() == path || (!trashed.exists() && !trashed.isSymbolicLink());
+        }
+        return true;
+    }
+    if (error)
+        *error = tr("Could not move it to the trash: %1").arg(file.errorString());
+    return false;
+}
+
+CleanResult clean(const QList<ScanItem> &items, CleanMethod method, const CancelCheck &canceled)
 {
     CleanResult result;
     for (const ScanItem &item : items) {
         if (canceled && canceled())
             break;
         QString error;
+        if (method == CleanMethod::Trash && !SystemFolders::isInTrash(item.path)) {
+            bool deleted = false;
+            if (moveToTrash(item.path, &error, &deleted)) {
+                (deleted ? result.freedBytes : result.trashedBytes) += item.bytes;
+            } else {
+                result.trashFailed = true;
+                result.failures.append(
+                    QStringLiteral("%1: %2").arg(QDir::toNativeSeparators(item.path), error));
+            }
+            continue;
+        }
         if (removeTree(item.path, &error)) {
             result.freedBytes += item.bytes;
         } else {

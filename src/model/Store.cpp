@@ -92,6 +92,8 @@ bool Store::load(QString *error)
         settings.value(QStringLiteral("freeWarnBytes")).toDouble(toJsonNumber(defaults.freeWarnBytes)));
     m_settings.totalWarnBytes = static_cast<qint64>(
         settings.value(QStringLiteral("totalWarnBytes")).toDouble(toJsonNumber(defaults.totalWarnBytes)));
+    m_settings.deleteDirectly =
+        settings.value(QStringLiteral("deleteDirectly")).toBool(defaults.deleteDirectly);
 
     const QJsonArray types = root.value(QStringLiteral("types")).toArray();
     for (CleanerType t : cleanerTypesFromJson(types)) {
@@ -175,6 +177,7 @@ bool Store::save(QString *error)
              {QStringLiteral("rescanMinutes"), m_settings.rescanMinutes},
              {QStringLiteral("freeWarnBytes"), toJsonNumber(m_settings.freeWarnBytes)},
              {QStringLiteral("totalWarnBytes"), toJsonNumber(m_settings.totalWarnBytes)},
+             {QStringLiteral("deleteDirectly"), m_settings.deleteDirectly},
          }},
         {QStringLiteral("types"), cleanerTypesToJson(m_customTypes)},
         {QStringLiteral("groups"), groups},

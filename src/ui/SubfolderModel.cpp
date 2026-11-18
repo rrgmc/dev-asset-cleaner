@@ -152,24 +152,25 @@ void SubfolderModel::reload()
 
 void SubfolderModel::rescan(int row)
 {
-    start(row, false);
+    start(row, std::nullopt);
 }
 
 void SubfolderModel::rescanAll()
 {
     for (int row = 0; row < m_rows.size(); ++row)
-        start(row, false);
+        start(row, std::nullopt);
 }
 
-void SubfolderModel::clean(int row)
+void SubfolderModel::clean(int row, CleanMethod method)
 {
     if (row < 0 || row >= m_rows.size() || m_rows.at(row).excluded || folderCleaning())
         return;
-    start(row, true);
+    start(row, method);
 }
 
-void SubfolderModel::start(int row, bool cleaning)
+void SubfolderModel::start(int row, std::optional<CleanMethod> method)
 {
+    const bool cleaning = method.has_value();
     const Folder *f = m_store->folder(m_folderId);
     if (!f || f->kind != Folder::Kind::Matching || row < 0 || row >= m_rows.size())
         return;
@@ -182,15 +183,15 @@ void SubfolderModel::start(int row, bool cleaning)
     // An excluded subfolder is only sized: with no types, its scan finds nothing to delete.
     const QList<CleanerType> types = r.excluded ? QList<CleanerType>{} : m_store->typesFor(*f);
     const auto cancel = r.cancel;
-    m_pool.start([this, parent = f->path, name = r.name, types, cancel, generation,
-                                cleaning] {
+    m_pool.start([this, parent = f->path, name = r.name, types, cancel, generation, cleaning,
+                  method] {
         const CancelCheck canceled = [cancel] { return cancel->load(); };
         ScanResult result = Scanner::scanSubfolder(parent, name, types, canceled);
         CleanResult cleanResult;
         if (cleaning) {
             // The scan just above is the fresh one cleaning needs: delete what it found.
             if (result.valid && result.error.isEmpty())
-                cleanResult = Scanner::clean(result.items, canceled);
+                cleanResult = Scanner::clean(result.items, *method, canceled);
             result = Scanner::scanSubfolder(parent, name, types, canceled);
         }
         QMetaObject::invokeMethod(this, [this, name, generation, result, cleanResult, cleaning] {
