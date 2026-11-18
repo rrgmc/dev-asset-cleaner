@@ -100,27 +100,27 @@ public:
             names.append(e.fileName());
 
         qint64 total = 0;
-        for (const QFileInfo &e : entries) {
-            if (isLink(e))
-                continue;
-            if (!e.isDir()) {
-                total += e.size();
-                continue;
-            }
-            if (top && isExcluded(e.fileName(), m_excludes)) {
-                total += Scanner::treeSize(e.filePath(), m_canceled);
-                continue;
-            }
-            const QList<int> types = matches(e.fileName(), names);
-            if (!types.isEmpty()) {
-                const qint64 bytes = Scanner::treeSize(e.filePath(), m_canceled);
-                m_onMatch(e.filePath(), bytes, types);
-                total += bytes;
-            } else {
-                total += walk(e.filePath(), false);
-            }
-        }
+        for (const QFileInfo &e : entries)
+            total += walkEntry(e, names, top);
         return total;
+    }
+
+    // Returns the size of one entry of a folder whose entries are named `siblings`, after
+    // reporting what the rules match in it. `top` says the folder is the one walk() started in.
+    qint64 walkEntry(const QFileInfo &e, const QStringList &siblings, bool top)
+    {
+        if (isLink(e))
+            return 0;
+        if (!e.isDir())
+            return e.size();
+        if (top && isExcluded(e.fileName(), m_excludes))
+            return Scanner::treeSize(e.filePath(), m_canceled);
+        const QList<int> types = matches(e.fileName(), siblings);
+        if (types.isEmpty())
+            return walk(e.filePath(), false);
+        const qint64 bytes = Scanner::treeSize(e.filePath(), m_canceled);
+        m_onMatch(e.filePath(), bytes, types);
+        return bytes;
     }
 
 private:
@@ -194,6 +194,22 @@ ScanResult scan(const QString &path, const QList<CleanerType> &types, const Canc
                       },
                       excludes);
         result.totalBytes = walker.walk(path);
+    });
+}
+
+ScanResult scanSubfolder(const QString &path, const QString &name, const QList<CleanerType> &types,
+                         const CancelCheck &canceled)
+{
+    const QString subPath = QDir(path).filePath(name);
+    return runScan(subPath, canceled, [&](ScanResult &result) {
+        // The subfolder's siblings are what its own rules' markers look for.
+        const QStringList siblings = QDir(path).entryList(AllEntries, QDir::NoSort);
+        Walker walker(compile(types), canceled,
+                      [&result](const QString &item, qint64 bytes, const QList<int> &) {
+                          result.items.append(ScanItem{item, bytes});
+                          result.cleanableBytes += bytes;
+                      });
+        result.totalBytes = walker.walkEntry(QFileInfo(subPath), siblings, false);
     });
 }
 

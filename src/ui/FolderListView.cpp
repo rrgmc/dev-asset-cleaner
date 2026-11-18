@@ -1,9 +1,7 @@
 #include "FolderListView.h"
 
-#include "FolderDelegate.h"
 #include "FolderModel.h"
 #include "GroupListView.h"
-#include "Spinner.h"
 
 #include <QContextMenuEvent>
 #include <QCursor>
@@ -14,16 +12,10 @@
 #include <QPainter>
 
 FolderListView::FolderListView(FolderModel *model, QWidget *parent)
-    : QListView(parent)
+    : CleanableListView(model, parent)
     , m_model(model)
 {
-    setModel(model);
-    setItemDelegate(new FolderDelegate(this));
     setSelectionMode(QAbstractItemView::SingleSelection);
-    setMouseTracking(true);
-    setUniformItemSizes(true);
-    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setEditTriggers(QAbstractItemView::NoEditTriggers);
     setAcceptDrops(true);
     setDropIndicatorShown(false);
     setDragEnabled(true);
@@ -35,31 +27,6 @@ FolderListView::FolderListView(FolderModel *model, QWidget *parent)
         if (!m_keptId.isNull())
             selectId(m_keptId);
     });
-
-    m_spinnerTimer.setInterval(Spinner::FrameMs);
-    connect(&m_spinnerTimer, &QTimer::timeout, this, [this] {
-        for (int row = 0; row < m_model->rowCount(); ++row) {
-            const QModelIndex index = m_model->index(row);
-            if (index.data(FolderModel::BusyRole).toBool())
-                viewport()->update(visualRect(index));
-        }
-    });
-    connect(model, &QAbstractItemModel::dataChanged, this, &FolderListView::updateSpinner);
-    connect(model, &QAbstractItemModel::modelReset, this, &FolderListView::updateSpinner);
-    connect(model, &QAbstractItemModel::rowsInserted, this, &FolderListView::updateSpinner);
-    connect(model, &QAbstractItemModel::rowsRemoved, this, &FolderListView::updateSpinner);
-    updateSpinner();
-}
-
-void FolderListView::updateSpinner()
-{
-    bool busy = false;
-    for (int row = 0; row < m_model->rowCount() && !busy; ++row)
-        busy = m_model->index(row).data(FolderModel::BusyRole).toBool();
-    if (busy && !m_spinnerTimer.isActive())
-        m_spinnerTimer.start();
-    else if (!busy)
-        m_spinnerTimer.stop();
 }
 
 void FolderListView::startDrag(Qt::DropActions)
@@ -118,52 +85,14 @@ void FolderListView::keyboardSearch(const QString &search)
     emit typed(search);
 }
 
-QModelIndex FolderListView::buttonAt(const QPoint &pos) const
+void FolderListView::buttonClicked(const QModelIndex &index)
 {
-    const QModelIndex index = indexAt(pos);
-    if (!index.isValid() || !index.data(FolderModel::CanCleanRole).toBool())
-        return {};
-    return FolderDelegate::buttonRect(visualRect(index), fontMetrics()).contains(pos)
-               ? index
-               : QModelIndex();
+    emit cleanRequested(m_model->idAt(index.row()));
 }
 
-void FolderListView::mouseMoveEvent(QMouseEvent *event)
+void FolderListView::rowDoubleClicked(const QModelIndex &index)
 {
-    const QModelIndex index = indexAt(event->position().toPoint());
-    if (index != m_hoverIndex) {
-        if (m_hoverIndex.isValid())
-            viewport()->update(visualRect(m_hoverIndex));
-        m_hoverIndex = index;
-    }
-    if (index.isValid())
-        viewport()->update(visualRect(index));
-    viewport()->setCursor(buttonAt(event->position().toPoint()).isValid() ? Qt::PointingHandCursor
-                                                                           : Qt::ArrowCursor);
-    QListView::mouseMoveEvent(event);
-}
-
-void FolderListView::mouseReleaseEvent(QMouseEvent *event)
-{
-    const QModelIndex button = event->button() == Qt::LeftButton
-                                   ? buttonAt(event->position().toPoint())
-                                   : QModelIndex();
-    QListView::mouseReleaseEvent(event);
-    if (button.isValid())
-        emit cleanRequested(m_model->idAt(button.row()));
-}
-
-void FolderListView::mouseDoubleClickEvent(QMouseEvent *event)
-{
-    const QPoint pos = event->position().toPoint();
-    const QModelIndex index = indexAt(pos);
-    // A double click on the button is two clicks on it, not an edit.
-    if (index.isValid() && event->button() == Qt::LeftButton
-        && !FolderDelegate::buttonRect(visualRect(index), fontMetrics()).contains(pos)) {
-        emit editRequested(m_model->idAt(index.row()));
-        return;
-    }
-    QListView::mouseDoubleClickEvent(event);
+    emit editRequested(m_model->idAt(index.row()));
 }
 
 void FolderListView::contextMenuEvent(QContextMenuEvent *event)

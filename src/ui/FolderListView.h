@@ -1,14 +1,14 @@
 #pragma once
 
-#include <QListView>
-#include <QTimer>
+#include "CleanableListView.h"
+
 #include <QUuid>
 
 class FolderModel;
 
 // The folder list. Clicking a row's Clean button asks to clean it, Enter or a double click
 // edits the folder, and typing goes to the filter. A row can be dragged onto a group.
-class FolderListView : public QListView
+class FolderListView : public CleanableListView
 {
     Q_OBJECT
 
@@ -32,9 +32,8 @@ signals:
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void keyboardSearch(const QString &search) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-    void mouseReleaseEvent(QMouseEvent *event) override;
-    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void buttonClicked(const QModelIndex &index) override;
+    void rowDoubleClicked(const QModelIndex &index) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
@@ -44,13 +43,6 @@ protected:
     void currentChanged(const QModelIndex &current, const QModelIndex &previous) override;
 
 private:
-    // The row whose enabled Clean button is at `pos`, or an invalid index.
-    QModelIndex buttonAt(const QPoint &pos) const;
-    // Runs the spinner timer while any row is busy.
-    void updateSpinner();
-
     FolderModel *m_model;
-    QPersistentModelIndex m_hoverIndex;
     QUuid m_keptId;  // the current folder across a model reset
-    QTimer m_spinnerTimer;  // repaints the busy rows' spinners
 };

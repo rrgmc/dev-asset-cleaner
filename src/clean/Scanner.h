@@ -65,6 +65,13 @@ namespace Scanner {
 ScanResult scan(const QString &path, const QList<CleanerType> &types,
                 const CancelCheck &canceled = {}, const QStringList &excludes = {});
 
+// Scans the first-level subfolder `name` of a Matching folder at `path` and finds what `types`
+// would delete in it: the same items that scan() finds there. The subfolder itself is one of
+// them when a rule matches it. Excludes do not apply; the caller leaves excluded subfolders out
+// or scans them with no types. A symbolic link is not followed, so it finds nothing.
+ScanResult scanSubfolder(const QString &path, const QString &name, const QList<CleanerType> &types,
+                         const CancelCheck &canceled = {});
+
 // Lists everything inside a Whole folder at `path`, except `excludes` (as in scan()).
 ScanResult scanWhole(const QString &path, const CancelCheck &canceled = {},
                      const QStringList &excludes = {});
