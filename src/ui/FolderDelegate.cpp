@@ -2,6 +2,7 @@
 
 #include "FolderModel.h"
 #include "Format.h"
+#include "Spinner.h"
 
 #include <QAbstractItemView>
 #include <QCursor>
@@ -134,10 +135,17 @@ void FolderDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option
                       boldFm.elidedText(headline, Qt::ElideRight, sizeWidth));
     painter->setFont(opt.font);
     painter->setPen(warning ? WarningColor : dim);
+    const QString status = fm.elidedText(index.data(FolderModel::StatusRole).toString(),
+                                         Qt::ElideRight, sizeWidth);
     painter->drawText(QRect(sizeLeft, line2, sizeWidth, fm.height()),
-                      Qt::AlignRight | Qt::AlignVCenter,
-                      fm.elidedText(index.data(FolderModel::StatusRole).toString(), Qt::ElideRight,
-                                    sizeWidth));
+                      Qt::AlignRight | Qt::AlignVCenter, status);
+    // A spinner left of "Scanning…" or "Cleaning…".
+    if (index.data(FolderModel::BusyRole).toBool()) {
+        const int side = fm.ascent();
+        const int right = sizeRight - fm.horizontalAdvance(status) - fm.averageCharWidth();
+        Spinner::paint(painter,
+                       QRectF(right - side, line2 + (fm.height() - side) / 2.0, side, side), dim);
+    }
 
     // The Clean button.
     const bool enabled = index.data(FolderModel::CanCleanRole).toBool();

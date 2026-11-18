@@ -13,6 +13,7 @@
 #include "ItemsDialog.h"
 #include "LoginItem.h"
 #include "SettingsDialog.h"
+#include "Spinner.h"
 #include "TrayIcon.h"
 #include "UsagePanel.h"
 #include "TypesDialog.h"
@@ -72,6 +73,7 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     , m_groups(new GroupListView(m_groupModel, this))
     , m_filter(new QLineEdit(this))
     , m_summary(new QLabel(this))
+    , m_busy(new SpinnerWidget(this))
 {
     setWindowTitle(AppInfo::displayName());
     setWindowIcon(Icons::appIcon());
@@ -158,6 +160,8 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     m_splitter->setStretchFactor(1, 1);
     m_splitter->setSizes({200, 700});
     setCentralWidget(m_splitter);
+    m_busy->setToolTip(tr("Scanning or cleaning folders"));
+    statusBar()->addPermanentWidget(m_busy);
     statusBar()->addPermanentWidget(m_summary);
 
     createActions();
@@ -426,6 +430,7 @@ void MainWindow::updateSummary()
     if (!free.isEmpty())
         text += QStringLiteral("   ·   ") + free.join(QStringLiteral(", "));
     m_summary->setText(text);
+    m_busy->setRunning(m_monitor->isBusy());
     if (m_usage) {
         // The selection is worth its own column only when it is not every group.
         const bool partial = !groups.isEmpty() && groups.size() < m_store->groups().size();

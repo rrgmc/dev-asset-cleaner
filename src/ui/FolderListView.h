@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QListView>
+#include <QTimer>
 #include <QUuid>
 
 class FolderModel;
@@ -45,8 +46,11 @@ protected:
 private:
     // The row whose enabled Clean button is at `pos`, or an invalid index.
     QModelIndex buttonAt(const QPoint &pos) const;
+    // Runs the spinner timer while any row is busy.
+    void updateSpinner();
 
     FolderModel *m_model;
     QPersistentModelIndex m_hoverIndex;
     QUuid m_keptId;  // the current folder across a model reset
+    QTimer m_spinnerTimer;  // repaints the busy rows' spinners
 };

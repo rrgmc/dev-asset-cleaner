@@ -11,6 +11,7 @@
 class QLabel;
 class QLineEdit;
 class QPushButton;
+class SpinnerWidget;
 class QTreeWidget;
 class Store;
 
@@ -44,6 +45,7 @@ private:
     QLineEdit *m_path;
     QPushButton *m_search;
     QLabel *m_status;
+    SpinnerWidget *m_spinner;
     QTreeWidget *m_results;
     QPushButton *m_ok;
     QFutureWatcher<DetectResult> m_watcher;

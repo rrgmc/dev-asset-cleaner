@@ -60,6 +60,7 @@ qt_add_library(dac_ui STATIC
     src/ui/MainWindow.h src/ui/MainWindow.cpp
     src/ui/SettingsDialog.h src/ui/SettingsDialog.cpp
     src/ui/SizeSpinBox.h
+    src/ui/Spinner.h src/ui/Spinner.cpp
     src/ui/SystemFoldersDialog.h src/ui/SystemFoldersDialog.cpp
     src/ui/TrayIcon.h
     src/ui/TypesDialog.h src/ui/TypesDialog.cpp

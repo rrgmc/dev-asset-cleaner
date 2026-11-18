@@ -12,6 +12,7 @@ class GroupModel;
 class Monitor;
 class QLabel;
 class QLineEdit;
+class SpinnerWidget;
 class QMenu;
 class QSplitter;
 class Store;
@@ -97,6 +98,7 @@ private:
     QSplitter *m_splitter = nullptr;
     QLineEdit *m_filter;
     QLabel *m_summary;
+    SpinnerWidget *m_busy;
     UsagePanel *m_usage = nullptr;
     TrayIcon *m_tray = nullptr;
     QMenu *m_trayMenu = nullptr;
