@@ -336,9 +336,24 @@ void MainWindow::createActions()
     toolbar->addSeparator();
     addButton(types, tr("Cleaner types"));
     addButton(settings, tr("Settings"));
+#ifndef Q_OS_MACOS
+    // The usage panel sits at the right edge; on macOS the filter field takes that place.
+    auto *usageSpacer = new QWidget(toolbar);
+    usageSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    toolbar->addWidget(usageSpacer);
+#endif
     toolbar->addSeparator();
     m_usage = new UsagePanel(toolbar);
     toolbar->addWidget(m_usage);
+
+    // The usage panel sets the toolbar's height, which stretches the buttons. Bigger icons and
+    // a matching width keep them square.
+    const int side = m_usage->sizeHint().height();
+    toolbar->setIconSize(QSize(qMax(16, side / 2), qMax(16, side / 2)));
+    for (QAction *action : toolbar->actions()) {
+        if (auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(action)))
+            button->setMinimumWidth(side);
+    }
 
     // Tooltips name the command and its shortcut.
     for (QAction *action : toolbar->actions()) {
@@ -357,7 +372,6 @@ void MainWindow::createActions()
 
 #ifdef Q_OS_MACOS
     setUnifiedTitleAndToolBarOnMac(true);
-    toolbar->setIconSize(QSize(18, 18));
     auto *spacer = new QWidget(toolbar);
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     toolbar->addWidget(spacer);
