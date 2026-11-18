@@ -229,8 +229,10 @@ int main(int argc, char *argv[])
     Monitor monitor(&store);
 
     MainWindow window(&store, &monitor);
-    window.resize(900, 470);
     fill(store, monitor);
+    // Wide enough for the whole toolbar, so that none of its buttons go into the overflow menu,
+    // with room left for the filter field to show its placeholder text.
+    window.resize(qMax(900, window.sizeHint().width() + 120), 470);
     window.showAndFocus();
     // Let the window lay out and paint before grabbing it.
     for (int i = 0; i < 20; ++i) {
