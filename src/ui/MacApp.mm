@@ -48,4 +48,34 @@ void whenReopened(std::function<void()> callback)
                 }];
 }
 
+void lowerModalWindowsWhenInactive()
+{
+    // The windows lowered while the app is in the background; weak, so closed ones drop out.
+    static NSHashTable<NSWindow *> *lowered = [NSHashTable weakObjectsHashTable];
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    [center addObserverForName:NSApplicationDidResignActiveNotification
+                        object:nil
+                         queue:nil
+                    usingBlock:^(NSNotification *) {
+                        for (NSWindow *window in NSApp.windows) {
+                            // Leave menus, the status item and auto-hiding panels alone.
+                            if (!window.visible || window.hidesOnDeactivate
+                                || window.level != NSModalPanelWindowLevel)
+                                continue;
+                            window.level = NSNormalWindowLevel;
+                            [lowered addObject:window];
+                        }
+                    }];
+    [center addObserverForName:NSApplicationDidBecomeActiveNotification
+                        object:nil
+                         queue:nil
+                    usingBlock:^(NSNotification *) {
+                        for (NSWindow *window in lowered.allObjects) {
+                            if (window.visible && window.level == NSNormalWindowLevel)
+                                window.level = NSModalPanelWindowLevel;
+                        }
+                        [lowered removeAllObjects];
+                    }];
+}
+
 } // namespace MacApp
