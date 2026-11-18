@@ -84,8 +84,9 @@ keep fixes to those parts in step with it.
   Screenshot controls, and Qt (6.8 to 6.10) leaves them there. `MacApp::attachModalDialogs`
   keeps each modal dialog at the normal level and attaches it to its owner window as a child
   window, as Mirante does, so it stays directly above that window.
-- Qt 6.8's macOS style drew no check boxes in item views on macOS 27 (not yet checked with Qt
-  6.10). `ItemCheckStyle::apply`
+- Qt's macOS style (6.8 to 6.10) draws no usable check boxes in item views on macOS 27: at
+  most a misplaced box on the first row. `ItemCheckStyle` replaces its
+  `PE_IndicatorItemViewItemCheck` drawing, as in favdir; drawing after the style showed both. `ItemCheckStyle::apply`
   gives a view a style that paints them in code; use it on every view with checkable items.
 
 ## Packaging and releases
