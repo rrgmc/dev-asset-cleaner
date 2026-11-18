@@ -34,8 +34,8 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 - Each folder, of either kind, can **exclude** some of its first-level subfolders, such as a
   project you are working on. Cleaning never searches or deletes them. Set them in the folder's
   settings or with **Exclude** when adding matching folders.
-- The **Add** button also offers the tool caches it finds on this computer, such as the Go
-  module cache, the npm cache, Gradle's caches and Xcode's derived data.
+- The **Add** button also adds a group, and offers the tool caches it finds on this computer,
+  such as the Go module cache, the npm cache, Gradle's caches and Xcode's derived data.
 - **Add system folders** lists the operating system's trash and cache folders that are safe to
   empty: the Recycle Bin of each drive, Windows error reports, crash dumps and graphics shader
   caches on Windows; the Trash, the trash of other volumes and crash reports on macOS; the

@@ -416,6 +416,8 @@ void MainWindow::createActions()
         auto *menu = new QMenu(addButtonWidget);
         connect(menu, &QMenu::aboutToShow, this, [this, menu] {
             menu->clear();
+            menu->addAction(tr("Group"), this, &MainWindow::addGroup);
+            menu->addSeparator();
             menu->addAction(tr("Folder…"), this, &MainWindow::addFolder)
                 ->setToolTip(Folder::kindDescription(Folder::Kind::Whole));
             menu->addAction(tr("Matching folders…"), this, [this] { detectTypes(); })
@@ -424,8 +426,6 @@ void MainWindow::createActions()
             menu->addAction(tr("System folders…"), this, &MainWindow::addSystemFolders);
             menu->addSeparator();
             fillAddMenu(menu);
-            menu->addSeparator();
-            menu->addAction(tr("Group"), this, &MainWindow::addGroup);
         });
         addButtonWidget->setMenu(menu);
         addButtonWidget->setPopupMode(QToolButton::MenuButtonPopup);
