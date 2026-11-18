@@ -184,9 +184,9 @@ MainWindow::~MainWindow()
 void MainWindow::createActions()
 {
     QMenu *file = menuBar()->addMenu(tr("&File"));
-    QAction *add = file->addAction(tr("&Add folder…"), this, &MainWindow::addFolder);
+    QAction *add = file->addAction(tr("Add &folder…"), this, &MainWindow::addFolder);
     add->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_N));
-    QAction *detect = file->addAction(tr("&Detect types in a folder…"), this,
+    QAction *detect = file->addAction(tr("Add &matching folders…"), this,
                                       [this] { detectTypes(); });
     detect->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_D));
     QAction *system =
@@ -316,8 +316,11 @@ void MainWindow::createActions()
         auto *menu = new QMenu(addButtonWidget);
         connect(menu, &QMenu::aboutToShow, this, [this, menu] {
             menu->clear();
-            menu->addAction(tr("Folder…"), this, &MainWindow::addFolder);
-            menu->addAction(tr("Detect types in a folder…"), this, [this] { detectTypes(); });
+            menu->addAction(tr("Folder…"), this, &MainWindow::addFolder)
+                ->setToolTip(Folder::kindDescription(Folder::Kind::Whole));
+            menu->addAction(tr("Matching folders…"), this, [this] { detectTypes(); })
+                ->setToolTip(Folder::kindDescription(Folder::Kind::Matching));
+            menu->setToolTipsVisible(true);
             menu->addAction(tr("System folders…"), this, &MainWindow::addSystemFolders);
             menu->addSeparator();
             fillAddMenu(menu);
@@ -763,7 +766,7 @@ void MainWindow::addFolder()
     const QString dir = QFileDialog::getExistingDirectory(this, tr("Add folder"));
     if (dir.isEmpty())
         return;
-    // New folders start as Whole folders; the dialog picks the kind.
+    // "Folder" adds a Whole folder; "Matching folders" goes through detectTypes.
     Folder f;
     f.kind = Folder::Kind::Whole;
     f.path = QDir::cleanPath(QDir::fromNativeSeparators(dir));
@@ -799,10 +802,14 @@ void MainWindow::detectTypes(const QUuid &id)
     const QStringList types = dialog.typeIds();
     if (types.isEmpty())
         return;
-    // The dialog's folder may be another one already in the list.
+    // The dialog's folder may be another one already in the list. Its kind does not change.
     if (const Folder *f = m_store->folderWithPath(path)) {
+        if (f->kind != Folder::Kind::Matching) {
+            selectFolder(f->id);
+            showMessage(tr("%1 is a whole folder and cannot use cleaner types.").arg(f->name));
+            return;
+        }
         Folder updated = *f;
-        updated.kind = Folder::Kind::Matching;
         updated.typeIds = types;
         updated.excludes = dialog.excludes();
         m_store->updateFolder(updated);
@@ -1153,7 +1160,8 @@ void MainWindow::showContextMenu(const QUuid &id, const QPoint &globalPos)
         ->setEnabled(idle && r.valid && r.cleanableBytes > 0);
     menu.addAction(tr("&Rescan"), this, [this, id] { m_monitor->rescan(id); })->setEnabled(idle);
     menu.addAction(tr("&Show what cleaning deletes…"), this, &MainWindow::showItems);
-    menu.addAction(tr("&Detect types…"), this, [this, id] { detectTypes(id); });
+    if (f->kind == Folder::Kind::Matching)
+        menu.addAction(tr("&Detect types…"), this, [this, id] { detectTypes(id); });
     menu.addSeparator();
     menu.addAction(tr("&Open folder"), this, [this, id] { openFolder(id); });
     menu.addAction(tr("Copy &path"), this, [this, id] { copyPath(id); });

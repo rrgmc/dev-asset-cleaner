@@ -15,9 +15,10 @@ class SpinnerWidget;
 class QTreeWidget;
 class Store;
 
-// Searches one folder for the cleaner types that apply to it, such as Rust and JavaScript in a
-// folder of projects, and lets the user pick which ones the folder should use. Runs the search
-// in the background; it can be canceled.
+// Adds a Matching folder, or changes the types of one: searches the folder for the cleaner
+// types that apply to it, such as Rust and JavaScript in a folder of projects, and lets the
+// user pick which ones it should use. Runs the search in the background; it can be canceled.
+// A Whole folder already in the list cannot be turned into a Matching folder here.
 class DetectDialog : public QDialog
 {
     Q_OBJECT
@@ -45,6 +46,8 @@ private:
     void cancel();
     void finished();
     void updateButtons();
+    // The path is a Whole folder in the list, whose kind cannot change.
+    bool isWholeFolder() const;
 
     Store *m_store;
     QLineEdit *m_path;

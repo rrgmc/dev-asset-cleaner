@@ -36,7 +36,7 @@ DetectDialog::DetectDialog(Store *store, const QString &path, QWidget *parent)
     , m_results(new QTreeWidget(this))
     , m_autoStart(!path.isEmpty())
 {
-    setWindowTitle(tr("Detect cleaner types"));
+    setWindowTitle(tr("Matching folders"));
     resize(680, 520);
 
     auto *browse = new QPushButton(tr("&Browse…"), this);
@@ -220,6 +220,10 @@ void DetectDialog::finished()
                               .arg(Format::bytes(result.totalBytes),
                                    Format::bytes(result.cleanableBytes)));
     }
+    if (isWholeFolder()) {
+        m_status->setText(tr("This folder is in the list as a whole folder. A folder's kind does "
+                             "not change, so it cannot use these types."));
+    }
 
     const QDir base(path());
     const QSignalBlocker blocker(m_results);
@@ -263,5 +267,11 @@ void DetectDialog::updateButtons()
     m_search->setEnabled(running || !m_path->text().trimmed().isEmpty());
     m_path->setEnabled(!running);
     m_exclude->setEnabled(!running && !m_path->text().trimmed().isEmpty());
-    m_ok->setEnabled(!running && !typeIds().isEmpty());
+    m_ok->setEnabled(!running && !typeIds().isEmpty() && !isWholeFolder());
+}
+
+bool DetectDialog::isWholeFolder() const
+{
+    const Folder *f = m_store->folderWithPath(path());
+    return f && f->kind != Folder::Kind::Matching;
 }
