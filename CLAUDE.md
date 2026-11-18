@@ -190,7 +190,10 @@ work in the main checkout's working tree, which stays on `master`.
   CI sets). It reads notarytool's JSON status, prints Apple's log on failure and retries
   stapling. The release job builds a temporary keychain from the `release` environment's secrets and exports
   those variables. That job holds secrets: keep its actions pinned to commits.
-- `.github/workflows/build.yml` builds and tests on every push. `release.yml` runs when a
+- `.github/workflows/build.yml` builds and tests on every push and pull request, except when
+  only documentation changed (`*.md` files and `docs/`). Its `ci` job passes when the build
+  passed or was skipped, and it is the only check that branch protection requires. Pull
+  request runs are titled with the PR number. `release.yml` runs when a
   tag `vX.Y.Z` is pushed: it publishes the GitHub release (unless it exists), builds with that
   version (`-DDAC_VERSION`) and attaches the Windows setup and the macOS disk image. The tag
   is the version; nothing in the tree is bumped for a release.
