@@ -99,11 +99,13 @@ void paintBadge(QPainter &painter, qreal s)
 {
     const QPointF center(0.76 * s, 0.76 * s);
     const qreal r = 0.24 * s;
-    painter.setBrush(QColor(0xE8, 0x59, 0x0C));
-    painter.setPen(QPen(Qt::white, qMax(1.0, 0.04 * s)));
+    // Yellow with dark ink, which stands apart from the coral bin even at 16 pixels.
+    const QColor ink(0x1B, 0x1B, 0x1B);
+    painter.setBrush(QColor(0xFF, 0xC3, 0x00));
+    painter.setPen(QPen(ink, qMax(1.0, 0.04 * s)));
     painter.drawEllipse(center, r, r);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(Qt::white);
+    painter.setBrush(ink);
     const qreal w = 0.07 * s;
     painter.drawRoundedRect(QRectF(center.x() - w / 2, center.y() - 0.15 * s, w, 0.17 * s),
                             w / 2, w / 2);
@@ -127,10 +129,10 @@ QImage render(int size, bool mono, bool warning)
         painter.fillPath(bodyPath(size).subtracted(bracesPath(size)), Qt::black);
         painter.fillPath(sparkle(size), Qt::black);
     } else {
-        painter.fillPath(lid, QColor(0x26, 0x46, 0x53));
-        painter.fillPath(bodyPath(size), QColor(0x2A, 0x9D, 0x8F));
-        painter.fillPath(bracesPath(size), QColor(0xF1, 0xFA, 0xEE));
-        painter.fillPath(sparkle(size), QColor(0xE9, 0xC4, 0x6A));
+        painter.fillPath(lid, QColor(0x8C, 0x3A, 0x28));
+        painter.fillPath(bodyPath(size), QColor(0xE7, 0x6F, 0x51));
+        painter.fillPath(bracesPath(size), QColor(0xFF, 0xF4, 0xEC));
+        painter.fillPath(sparkle(size), QColor(0xF4, 0xC9, 0x5D));
     }
     if (warning)
         paintBadge(painter, size);

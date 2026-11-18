@@ -10,7 +10,7 @@ namespace Icons {
 // from the same drawing by tools/make_icons.
 QIcon appIcon();
 // The icon in the tray or menu bar. Without a warning it is the same shape as a monochrome
-// template on macOS. With one it carries an orange badge, in colour on every platform.
+// template on macOS. With one it carries a yellow badge, in colour on every platform.
 QIcon trayIcon(bool warning = false);
 // The icon at one size; tools/make_icons uses it to write the .ico and .icns files.
 QImage render(int size, bool mono = false, bool warning = false);
