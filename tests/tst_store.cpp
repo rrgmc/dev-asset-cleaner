@@ -45,6 +45,65 @@ private slots:
         QCOMPARE(store.folders().at(1).name, QStringLiteral("b"));
     }
 
+    void oldWarningLimits_data()
+    {
+        QTest::addColumn<QByteArray>("settings");
+        QTest::addColumn<Alert>("clean");
+        QTest::addColumn<Alert>("free");
+        QTest::newRow("defaults")
+            << QByteArray(R"({"freeWarnBytes":10737418240,"totalWarnBytes":0})")
+            << Settings::defaultCleanAlert() << Settings::defaultFreeAlert();
+        QTest::newRow("own limits")
+            << QByteArray(R"({"freeWarnBytes":2000000000,"totalWarnBytes":30000000000})")
+            << Alert{{30'000'000'000LL, 0, 0}, Severity::Low}
+            << Alert{{2'000'000'000LL, 0, 0}, Severity::Low};
+        QTest::newRow("free off")
+            << QByteArray(R"({"freeWarnBytes":0})") << Settings::defaultCleanAlert()
+            << Alert{{0, 0, 0}, Severity::Low};
+    }
+
+    void oldWarningLimits()
+    {
+        // Before the three levels, each warning had one limit. One of the user's own becomes
+        // the Low level; the old defaults give way to the new levels.
+        QFETCH(QByteArray, settings);
+        QFETCH(Alert, clean);
+        QFETCH(Alert, free);
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString file = dir.filePath(QStringLiteral("data.json"));
+        QFile out(file);
+        QVERIFY(out.open(QIODevice::WriteOnly));
+        out.write(R"({"version":3,"settings":)" + settings + R"(,"groups":[]})");
+        out.close();
+
+        Store store(file);
+        QVERIFY(store.load());
+        QCOMPARE(store.settings().cleanAlert, clean);
+        QCOMPARE(store.settings().freeAlert, free);
+        QVERIFY(store.settings().freeAlertOffDisks.isEmpty());
+    }
+
+    void alertLevels()
+    {
+        const Alert clean{{10, 20, 30}, Severity::Medium};
+        QCOMPARE(clean.levelFor(10, Alert::Direction::Above), Severity::None);
+        QCOMPARE(clean.levelFor(11, Alert::Direction::Above), Severity::Low);
+        QCOMPARE(clean.levelFor(25, Alert::Direction::Above), Severity::Medium);
+        QCOMPARE(clean.levelFor(31, Alert::Direction::Above), Severity::High);
+        QVERIFY(clean.orderProblem(Alert::Direction::Above).isEmpty());
+        QVERIFY(!clean.orderProblem(Alert::Direction::Below).isEmpty());
+
+        // A level that is off is skipped; the next one starts from the one before it.
+        const Alert free{{30, 0, 10}, Severity::Low};
+        QCOMPARE(free.levelFor(30, Alert::Direction::Below), Severity::None);
+        QCOMPARE(free.levelFor(29, Alert::Direction::Below), Severity::Low);
+        QCOMPARE(free.levelFor(9, Alert::Direction::Below), Severity::High);
+        QVERIFY(free.orderProblem(Alert::Direction::Below).isEmpty());
+        QVERIFY(!Alert({{10, 10, 0}, Severity::Low}).orderProblem(Alert::Direction::Above).isEmpty());
+        QCOMPARE(Alert{}.levelFor(1'000'000, Alert::Direction::Above), Severity::None);
+    }
+
     void noGroupsStaysEmpty()
     {
         // Deleting every group is kept: "Default" comes back only for a new file.
@@ -88,8 +147,9 @@ private slots:
         Settings settings;
         settings.closeToTray = false;
         settings.rescanMinutes = 5;
-        settings.freeWarnBytes = 1'000'000'000LL;
-        settings.totalWarnBytes = 99'000'000'000LL;
+        settings.freeAlert = Alert{{3'000'000'000LL, 0, 1'000'000'000LL}, Severity::High};
+        settings.cleanAlert = Alert{{99'000'000'000LL, 120'000'000'000LL, 0}, Severity::None};
+        settings.freeAlertOffDisks = {QStringLiteral("/mnt/backup")};
         settings.deleteDirectly = true;
 
         Folder other;

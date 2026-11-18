@@ -16,11 +16,25 @@ namespace {
 constexpr int FileVersion = 3;
 constexpr int SaveDelayMs = 300;
 
+// The single free space limit before the three levels.
+constexpr qint64 OldFreeWarnDefault = 10LL * 1024 * 1024 * 1024;
+constexpr qint64 GB = 1000LL * 1000 * 1000;
+
 double toJsonNumber(qint64 value)
 {
     return static_cast<double>(value);
 }
 } // namespace
+
+Alert Settings::defaultCleanAlert()
+{
+    return Alert{{10 * GB, 25 * GB, 50 * GB}, Severity::Medium};
+}
+
+Alert Settings::defaultFreeAlert()
+{
+    return Alert{{25 * GB, 10 * GB, 5 * GB}, Severity::Medium};
+}
 
 Store::Store(QString filePath, QObject *parent)
     : QObject(parent)
@@ -88,10 +102,30 @@ bool Store::load(QString *error)
     m_settings.closeToTray = settings.value(QStringLiteral("closeToTray")).toBool(defaults.closeToTray);
     m_settings.rescanMinutes =
         settings.value(QStringLiteral("rescanMinutes")).toInt(defaults.rescanMinutes);
-    m_settings.freeWarnBytes = static_cast<qint64>(
-        settings.value(QStringLiteral("freeWarnBytes")).toDouble(toJsonNumber(defaults.freeWarnBytes)));
-    m_settings.totalWarnBytes = static_cast<qint64>(
-        settings.value(QStringLiteral("totalWarnBytes")).toDouble(toJsonNumber(defaults.totalWarnBytes)));
+    if (settings.contains(QStringLiteral("cleanAlert"))) {
+        m_settings.cleanAlert = Alert::fromJson(settings.value(QStringLiteral("cleanAlert")).toObject(),
+                                                defaults.cleanAlert);
+    } else if (const qint64 old = static_cast<qint64>(
+                   settings.value(QStringLiteral("totalWarnBytes")).toDouble(0));
+               old > 0) {
+        // Before the three levels there was one limit, which becomes the Low level.
+        m_settings.cleanAlert = Alert{{old, 0, 0}, Severity::Low};
+    }
+    if (settings.contains(QStringLiteral("freeAlert"))) {
+        m_settings.freeAlert = Alert::fromJson(settings.value(QStringLiteral("freeAlert")).toObject(),
+                                               defaults.freeAlert);
+    } else if (settings.contains(QStringLiteral("freeWarnBytes"))) {
+        // The old default gives way to the new levels. A limit of the user's own, or off, is
+        // kept as the Low level.
+        const qint64 old =
+            static_cast<qint64>(settings.value(QStringLiteral("freeWarnBytes")).toDouble(0));
+        if (old != OldFreeWarnDefault)
+            m_settings.freeAlert = Alert{{qMax<qint64>(0, old), 0, 0}, Severity::Low};
+    }
+    for (const QJsonValue &v : settings.value(QStringLiteral("freeAlertOffDisks")).toArray()) {
+        if (v.isString())
+            m_settings.freeAlertOffDisks.append(v.toString());
+    }
     m_settings.deleteDirectly =
         settings.value(QStringLiteral("deleteDirectly")).toBool(defaults.deleteDirectly);
 
@@ -175,8 +209,10 @@ bool Store::save(QString *error)
          QJsonObject{
              {QStringLiteral("closeToTray"), m_settings.closeToTray},
              {QStringLiteral("rescanMinutes"), m_settings.rescanMinutes},
-             {QStringLiteral("freeWarnBytes"), toJsonNumber(m_settings.freeWarnBytes)},
-             {QStringLiteral("totalWarnBytes"), toJsonNumber(m_settings.totalWarnBytes)},
+             {QStringLiteral("cleanAlert"), m_settings.cleanAlert.toJson()},
+             {QStringLiteral("freeAlert"), m_settings.freeAlert.toJson()},
+             {QStringLiteral("freeAlertOffDisks"),
+              QJsonArray::fromStringList(m_settings.freeAlertOffDisks)},
              {QStringLiteral("deleteDirectly"), m_settings.deleteDirectly},
          }},
         {QStringLiteral("types"), cleanerTypesToJson(m_customTypes)},

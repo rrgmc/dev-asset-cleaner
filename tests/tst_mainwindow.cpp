@@ -12,6 +12,8 @@
 #include "ui/GroupListView.h"
 #include "ui/GroupModel.h"
 #include "ui/MainWindow.h"
+#include "ui/SettingsDialog.h"
+#include "ui/SizeSpinBox.h"
 #include "ui/SubfolderModel.h"
 #include "ui/SubfolderPanel.h"
 #include "ui/SystemFoldersDialog.h"
@@ -653,9 +655,62 @@ private slots:
         QCOMPARE(tree->topLevelItemCount(), 2);
         QVERIFY(tree->topLevelItem(1)->text(0).contains(QStringLiteral("Small")));
         QVERIFY(tree->topLevelItem(0)->foreground(0) != tree->topLevelItem(1)->foreground(0));
+        QCOMPARE(m_monitor->warnings().freeLevel, Severity::High);
+
+        // Unchecking a disk takes it out of the warning.
+        QTreeWidgetItem *smallItem = tree->topLevelItem(1);
+        QCOMPARE(smallItem->checkState(0), Qt::Checked);
+        smallItem->setCheckState(0, Qt::Unchecked);
+        QTRY_VERIFY(m_store->settings().freeAlertOffDisks.contains(QStringLiteral("/small")));
+        QCOMPARE(m_monitor->warnings().freeLevel, Severity::None);
+        QTRY_VERIFY(low->isHidden());
+        QCOMPARE(tree->topLevelItem(1)->checkState(0), Qt::Unchecked);
+        tree->topLevelItem(1)->setCheckState(0, Qt::Checked);
+        QTRY_VERIFY(m_store->settings().freeAlertOffDisks.isEmpty());
+        QTRY_VERIFY(!low->isHidden());
+
         m_monitor->setVolumesForDisplay({big});
         QCOMPARE(tree->topLevelItemCount(), 1);
         QVERIFY(low->isHidden());
+    }
+
+    void settingsRefuseLevelsOutOfOrder()
+    {
+        SettingsDialog dialog(m_store->settings(), false);
+        auto *buttons = dialog.findChild<QDialogButtonBox *>();
+        QVERIFY(buttons);
+        QVERIFY(buttons->button(QDialogButtonBox::Ok)->isEnabled());
+        // Medium above 5 GB comes before Low above 10 GB: refused.
+        dialog.cleanAlertEditor()->limitBox(1)->setBytes(5'000'000'000LL);
+        QVERIFY(!buttons->button(QDialogButtonBox::Ok)->isEnabled());
+        dialog.cleanAlertEditor()->limitBox(1)->setBytes(0);
+        QVERIFY(buttons->button(QDialogButtonBox::Ok)->isEnabled());
+        QCOMPARE(dialog.settings().cleanAlert.limits[1], 0);
+        // Free space levels shrink: Medium below 30 GB, more than Low's 25 GB, is refused.
+        dialog.freeAlertEditor()->limitBox(1)->setBytes(30'000'000'000LL);
+        QVERIFY(!buttons->button(QDialogButtonBox::Ok)->isEnabled());
+    }
+
+    void cleanLevelFollowsTotalAndFolderLimits()
+    {
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching,
+                                {QStringLiteral("rust")});
+        QTRY_COMPARE(m_monitor->cleanableBytes(), 4000);
+
+        Settings s = m_store->settings();
+        s.cleanAlert = Alert{{1000, 3000, 5000}, Severity::Medium};
+        m_store->setSettings(s);
+        QCOMPARE(m_monitor->warnings().cleanLevel, Severity::Medium);
+
+        // With the levels off, a folder over its own limit still counts as Low.
+        s.cleanAlert = Alert{{0, 0, 0}, Severity::Medium};
+        m_store->setSettings(s);
+        QCOMPARE(m_monitor->warnings().cleanLevel, Severity::None);
+        Folder f = m_store->folders().first();
+        f.warnBytes = 100;
+        m_store->updateFolder(f);
+        QTRY_VERIFY(m_monitor->result(f.id).valid);
+        QCOMPARE(m_monitor->warnings().cleanLevel, Severity::Low);
     }
 
 private:

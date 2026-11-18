@@ -71,9 +71,12 @@ a Rust project is left alone. To add your own rules, open **Tools > Cleaner type
   move it. Select several groups to see and clean their folders together.
 - **One project at a time.** **Folder > Clean subfolders** lists each project in a folder of
   projects, with its own Clean button.
-- **Warnings.** The tray icon gets a yellow badge when a disk runs low on space, or when a
-  folder has more to clean than a limit you set. **Free space** shows the free space on each
-  disk.
+- **Warnings.** Two warnings watch the space to clean in all folders and the free space on each
+  disk. Each has three levels, Low, Medium and High, shown in yellow, orange and red. Set where
+  each level starts, and the level from which you get a notification, in Settings. The tray
+  icon shows the space to clean as a circle on the left and free space as a triangle on the
+  right, in the colour of the level. A folder can also have its own limit. **Free space** shows
+  the free space on each disk; uncheck a disk there to leave it out of the warning.
 - **Sorting.** Order groups and folders by name, by space to clean, or in your own order by
   dragging them.
 - **Start when I sign in.** Turn it on in Settings (macOS 13 and later). The app then starts

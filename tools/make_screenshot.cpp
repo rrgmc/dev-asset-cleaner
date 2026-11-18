@@ -111,10 +111,10 @@ void fill(Store &store, Monitor &monitor)
     }
 #ifdef Q_OS_MACOS
     monitor.setVolumesForDisplay(
-        {Volume{QStringLiteral("/"), QStringLiteral("Macintosh HD"), 41 * GB, 494 * GB, false}});
+        {Volume{QStringLiteral("/"), QStringLiteral("Macintosh HD"), 41 * GB, 494 * GB}});
 #else
     monitor.setVolumesForDisplay(
-        {Volume{QStringLiteral("C:/"), QStringLiteral("Windows"), 41 * GB, 494 * GB, false}});
+        {Volume{QStringLiteral("C:/"), QStringLiteral("Windows"), 41 * GB, 494 * GB}});
 #endif
 }
 
