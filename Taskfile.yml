@@ -9,7 +9,7 @@ vars:
   BUILD_DIR: build/{{.PRESET}}
   BIN_DIR: '{{.BUILD_DIR}}/bin/{{.CONFIG}}'
   EXE: '{{if eq OS "windows"}}.exe{{end}}'
-  APP: '{{if eq OS "windows"}}{{.BIN_DIR}}/dev-asset-cleaner.exe{{else}}{{.BIN_DIR}}/dev-asset-cleaner.app/Contents/MacOS/dev-asset-cleaner{{end}}'
+  APP: '{{if eq OS "windows"}}{{.BIN_DIR}}/dev-asset-cleaner.exe{{else}}{{.BIN_DIR}}/Dev Asset Cleaner.app/Contents/MacOS/Dev Asset Cleaner{{end}}'
 
 tasks:
   default:

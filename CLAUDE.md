@@ -84,8 +84,9 @@ keep fixes to those parts in step with it.
   Screenshot controls, and Qt (6.8 to 6.10) leaves them there. `MacApp::attachModalDialogs`
   keeps each modal dialog at the normal level and attaches it to its owner window as a child
   window, as Mirante does, so it stays directly above that window.
-- Qt 6.8's macOS style drew no check boxes in item views on macOS 27 (not yet checked with Qt
-  6.10). `ItemCheckStyle::apply`
+- Qt's macOS style (6.8 to 6.10) draws no usable check boxes in item views on macOS 27: at
+  most a misplaced box on the first row. `ItemCheckStyle` replaces its
+  `PE_IndicatorItemViewItemCheck` drawing, as in favdir; drawing after the style showed both. `ItemCheckStyle::apply`
   gives a view a style that paints them in code; use it on every view with checkable items.
 
 ## Packaging and releases
@@ -94,6 +95,10 @@ keep fixes to those parts in step with it.
 - `cpack -C Release` in a Windows build folder makes the NSIS setup, with the same patched
   NSIS template and finish page options as favdir. Configuring fails if the template's
   anchors change in a new CMake version.
+- On macOS the bundle is `Dev Asset Cleaner.app`, from the executable's `OUTPUT_NAME`
+  (`DAC_BUNDLE_NAME`); the target and the Windows executable keep the name
+  `dev-asset-cleaner`. Quote paths to the bundle: the name has spaces. The data folder does not
+  change with it, because `main.cpp` sets the application name.
 - `cpack -C Release` in a macOS build folder makes the DragNDrop disk image. The install step
   signs the bundle after macdeployqt. `DAC_CODESIGN_IDENTITY` picks the identity: `-` (ad hoc,
   the default) or a Developer ID, which adds the hardened runtime and timestamp.

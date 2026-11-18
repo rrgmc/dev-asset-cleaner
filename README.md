@@ -152,7 +152,7 @@ testing.
    ```
 
    The app is in `build/windows/bin/Release/dev-asset-cleaner.exe`, or
-   `build/macos/bin/Release/dev-asset-cleaner.app`.
+   `build/macos/bin/Release/Dev Asset Cleaner.app`.
 
 3. Package. This copies the app and the Qt libraries it needs into one folder. The prefix must
    be an absolute path.
@@ -212,7 +212,7 @@ cd build/macos
 cpack -C Release
 ```
 
-The disk image holds `dev-asset-cleaner.app`, with the Qt libraries it needs, and a link to the
+The disk image holds `Dev Asset Cleaner.app`, with the Qt libraries it needs, and a link to the
 Applications folder. Drag the app onto the link to install it.
 
 This disk image is signed ad hoc, not with an Apple Developer ID, and it is not notarised. The
