@@ -446,11 +446,9 @@ void MainWindow::createActions()
     toolbar->addSeparator();
     addButton(rescan, tr("Rescan"));
     addButton(m_cleanAction, tr("Clean"));
-    addButton(m_cleanAllAction, tr("Clean the selected groups"));
     toolbar->addSeparator();
+    addButton(m_cleanAllAction, tr("Clean the selected groups"));
     addButton(freeSpace, tr("Free space"));
-    addButton(types, tr("Cleaner types"));
-    addButton(settings, tr("Settings"));
 #ifndef Q_OS_MACOS
     // The usage panel sits at the right edge; on macOS the filter field takes that place.
     auto *usageSpacer = new QWidget(toolbar);
