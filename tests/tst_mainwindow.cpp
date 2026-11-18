@@ -8,6 +8,7 @@
 #include "ui/FolderDialog.h"
 #include "ui/FolderListView.h"
 #include "ui/FolderModel.h"
+#include "ui/Format.h"
 #include "ui/FreeSpaceDialog.h"
 #include "ui/GroupListView.h"
 #include "ui/GroupModel.h"
@@ -711,6 +712,41 @@ private slots:
         m_store->updateFolder(f);
         QTRY_VERIFY(m_monitor->result(f.id).valid);
         QCOMPARE(m_monitor->warnings().cleanLevel, Severity::Low);
+    }
+
+    void warningReasonsSayWhyTheTrayWarns()
+    {
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching,
+                                {QStringLiteral("rust")});
+        QTRY_COMPARE(m_monitor->cleanableBytes(), 4000);
+        Settings s = m_store->settings();
+        s.cleanAlert = Alert{{0, 0, 0}, Severity::Medium};
+        s.freeAlert = Alert{{0, 0, 0}, Severity::Medium};
+        m_store->setSettings(s);
+        m_monitor->setVolumesForDisplay({Volume{QStringLiteral("R:/"), QStringLiteral("Disk R"),
+                                                2'000'000'000LL, 100'000'000'000LL}});
+        QVERIFY(m_window->warningReasons().isEmpty());
+
+        s.cleanAlert = Alert{{1000, 3000, 5000}, Severity::Medium};
+        s.freeAlert = Alert{{5'000'000'000LL, 0, 0}, Severity::Medium};
+        m_store->setSettings(s);
+        Folder f = m_store->folders().first();
+        f.warnBytes = 100;
+        m_store->updateFolder(f);
+        QTRY_VERIFY(m_monitor->result(f.id).valid);
+        QCOMPARE(m_window->warningReasons(),
+                 (QStringList{
+                     QStringLiteral("Free space on Disk R is below %1 (Low).")
+                         .arg(Format::bytes(5'000'000'000LL)),
+                     QStringLiteral("The folders have more than %1 to clean (Medium).")
+                         .arg(Format::bytes(3000)),
+                     QStringLiteral("%1 has more than %2 to clean.").arg(f.name, Format::bytes(100)),
+                 }));
+
+        // A disk left out of the free space warning gives no reason.
+        s.freeAlertOffDisks = {QStringLiteral("R:/")};
+        m_store->setSettings(s);
+        QCOMPARE(m_window->warningReasons().size(), 2);
     }
 
 private:

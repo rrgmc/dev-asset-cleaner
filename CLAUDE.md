@@ -108,7 +108,9 @@ work in the main checkout's working tree, which stays on `master`.
   grow, free space levels shrink; `SettingsDialog` refuses levels out of order.
   `Monitor::warnings` gives each warning's level; a folder over its own `warnBytes` makes the
   clean level at least Low. The tray icon shows the clean level as a circle at the bottom left
-  and the free level as a triangle at the bottom right, in `Icons::severityColor`. A
+  and the free level as a triangle at the bottom right, in `Icons::severityColor`.
+  `MainWindow::warningReasons` says why, one line per low disk, the total and each large
+  folder; the tray menu lists them at its top and the tooltip repeats them. A
   notification comes when a level rises to the notify level or above while the window is
   hidden. A file without `cleanAlert` or `freeAlert` keeps a single old limit
   (`totalWarnBytes`, `freeWarnBytes`) as the Low level, except the old free space default.

@@ -592,10 +592,15 @@ void MainWindow::updateTray()
     if (!m_tray)
         return;
     const Warnings warnings = m_monitor->warnings();
+    const QStringList reasons = warningReasons();
 
-    // The menu: each group's folders, each disk, then the commands. With one group the folders
-    // are listed directly; with several, each group is a submenu.
+    // The menu: why the icon warns, each group's folders, each disk, then the commands. With
+    // one group the folders are listed directly; with several, each group is a submenu.
     m_trayMenu->clear();
+    for (const QString &reason : reasons)
+        m_trayMenu->addAction(warningMark() + reason)->setEnabled(false);
+    if (!reasons.isEmpty())
+        m_trayMenu->addSeparator();
     const bool submenus = m_store->groups().size() > 1;
     QHash<QUuid, QMenu *> groupMenus;
     for (const Group &g : m_store->groups()) {
@@ -657,21 +662,10 @@ void MainWindow::updateTray()
                                  .arg(v.low() ? warningMark() : QString(), Format::bytes(v.freeBytes),
                                       Format::bytes(v.totalBytes), v.name);
         m_trayMenu->addAction(line)->setEnabled(false);
-        tipLines.append(v.low() ? line + tr(" (%1)").arg(severityName(v.level)) : line);
+        tipLines.append(line);
     }
-    const Alert &cleanAlert = m_store->settings().cleanAlert;
-    const Severity totalLevel =
-        cleanAlert.levelFor(m_monitor->cleanableBytes(), Alert::Direction::Above);
-    if (totalLevel != Severity::None)
-        tipLines.append(warningMark()
-                        + tr("The folders have more than %1 to clean (%2).")
-                              .arg(Format::bytes(cleanAlert.limits[static_cast<int>(totalLevel) - 1]),
-                                   severityName(totalLevel)));
-    for (const QUuid &id : warnings.largeFolders) {
-        if (const Folder *f = m_store->folder(id))
-            tipLines.append(warningMark() + tr("%1 has more than %2 to clean.")
-                                                .arg(f->name, Format::bytes(f->warnBytes)));
-    }
+    for (const QString &reason : reasons)
+        tipLines.append(warningMark() + reason);
     m_trayMenu->addSeparator();
     QAction *trayCleanAll = m_trayMenu->addAction(tr("Clean everything…"), this, [this] {
         showAndFocus();
@@ -714,6 +708,32 @@ void MainWindow::updateTray()
     m_lastCleanLevel = warnings.cleanLevel;
     if (!notes.isEmpty() && !isVisible())
         m_tray->showWarning(AppInfo::displayName(), notes.join(QLatin1Char('\n')));
+}
+
+QStringList MainWindow::warningReasons() const
+{
+    const Warnings warnings = m_monitor->warnings();
+    const Settings &settings = m_store->settings();
+    const auto limit = [](const Alert &alert, Severity level) {
+        return Format::bytes(alert.limits[static_cast<int>(level) - 1]);
+    };
+    QStringList reasons;
+    for (const Volume &v : warnings.lowVolumes) {
+        reasons.append(tr("Free space on %1 is below %2 (%3).")
+                           .arg(v.name, limit(settings.freeAlert, v.level), severityName(v.level)));
+    }
+    const Severity totalLevel =
+        settings.cleanAlert.levelFor(m_monitor->cleanableBytes(), Alert::Direction::Above);
+    if (totalLevel != Severity::None) {
+        reasons.append(tr("The folders have more than %1 to clean (%2).")
+                           .arg(limit(settings.cleanAlert, totalLevel), severityName(totalLevel)));
+    }
+    for (const QUuid &id : warnings.largeFolders) {
+        if (const Folder *f = m_store->folder(id))
+            reasons.append(
+                tr("%1 has more than %2 to clean.").arg(f->name, Format::bytes(f->warnBytes)));
+    }
+    return reasons;
 }
 
 QUuid MainWindow::currentId() const

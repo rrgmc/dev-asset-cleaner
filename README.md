@@ -75,7 +75,8 @@ a Rust project is left alone. To add your own rules, open **Tools > Cleaner type
   disk. Each has three levels, Low, Medium and High, shown in yellow, orange and red. Set where
   each level starts, and the level from which you get a notification, in Settings. The tray
   icon shows the space to clean as a circle on the left and free space as a triangle on the
-  right, in the colour of the level. A folder can also have its own limit. **Free space** shows
+  right, in the colour of the level, and its menu lists the reasons at the top. A folder can
+  also have its own limit. **Free space** shows
   the free space on each disk; uncheck a disk there to leave it out of the warning.
 - **Sorting.** Order groups and folders by name, by space to clean, or in your own order by
   dragging them.

@@ -51,6 +51,10 @@ public:
     void setGroupSort(SortOrder order);
     void setFolderSort(SortOrder order);
 
+    // Why the tray icon shows a warning, one line per reason; empty without warnings. The tray
+    // menu lists them at its top and the tooltip repeats them.
+    QStringList warningReasons() const;
+
     // Asks before deleting; tests turn the question off.
     void setConfirmCleaning(bool confirm) { m_confirmCleaning = confirm; }
 
