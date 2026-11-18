@@ -16,8 +16,13 @@ work in the main checkout's working tree, which stays on `master`.
   from scratch.
 - Qt is shared only through `QT_ROOT`. Without it, `scripts/setup.ps1` or `scripts/setup.sh`
   downloads Qt again into the worktree's own `.qt/`, so set `QT_ROOT` first.
-- Merging to `master` happens in the main checkout. Remove the worktree and delete its branch
-  as part of the merge.
+- `master` is protected on GitHub: nobody, admins included, can push to it directly. Changes
+  reach it only through a pull request that passes the `ci` check (see Packaging and releases).
+  No approval is needed. Force pushes to `master` and deleting it are refused. Tags are not
+  affected.
+- To merge, push the branch, open a pull request and merge it on GitHub, deleting the remote
+  branch. Then pull `master` in the main checkout, remove the worktree and delete the local
+  branch.
 
 ## Build and test
 
@@ -187,7 +192,10 @@ work in the main checkout's working tree, which stays on `master`.
   CI sets). It reads notarytool's JSON status, prints Apple's log on failure and retries
   stapling. The release job builds a temporary keychain from the `release` environment's secrets and exports
   those variables. That job holds secrets: keep its actions pinned to commits.
-- `.github/workflows/build.yml` builds and tests on every push. `release.yml` runs when a
+- `.github/workflows/build.yml` builds and tests on every push and pull request, except when
+  only documentation changed (`*.md` files and `docs/`). Its `ci` job passes when the build
+  passed or was skipped, and it is the only check that branch protection requires. Pull
+  request runs are titled with the PR number. `release.yml` runs when a
   tag `vX.Y.Z` is pushed: it publishes the GitHub release (unless it exists), builds with that
   version (`-DDAC_VERSION`) and attaches the Windows setup and the macOS disk image. The tag
   is the version; nothing in the tree is bumped for a release.
