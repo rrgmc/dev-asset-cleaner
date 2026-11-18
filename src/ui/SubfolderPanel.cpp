@@ -118,6 +118,8 @@ SubfolderPanel::SubfolderPanel(Store *store, Monitor *monitor, const QUuid &fold
         m_proxy->setSortRole(role);
         m_proxy->sort(0, role == Qt::DisplayRole ? Qt::AscendingOrder : Qt::DescendingOrder);
     };
+    // Largest first by default, as the user usually wants the subfolders worth cleaning.
+    m_sort->setCurrentIndex(1);
     connect(m_sort, &QComboBox::currentIndexChanged, this, applySort);
     applySort();
     auto *sortLabel = new QLabel(tr("&Sort by:"), this);

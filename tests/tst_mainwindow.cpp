@@ -217,10 +217,11 @@ private slots:
         QCOMPARE(model->resultAt(keep).cleanableBytes, 0);
         QVERIFY(!model->index(keep).data(FolderModel::CanCleanRole).toBool());
 
-        // Click lib's Clean button. The list is sorted by name: app, keep, lib.
+        // Click lib's Clean button. The list is sorted by space to clean: app, lib, keep.
         auto *list = dialog.findChild<CleanableListView *>();
         QVERIFY(list);
-        const QModelIndex row = list->model()->index(2, 0);
+        QCOMPARE(list->model()->index(0, 0).data().toString(), QStringLiteral("app"));
+        const QModelIndex row = list->model()->index(1, 0);
         QCOMPARE(row.data().toString(), QStringLiteral("lib"));
         const QRect button = FolderDelegate::buttonRect(list->visualRect(row), list->fontMetrics());
         QTest::mouseClick(list->viewport(), Qt::LeftButton, {}, button.center());
