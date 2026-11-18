@@ -22,4 +22,9 @@ namespace SystemFolders {
 // The folders that exist on this computer, in a fixed order.
 QList<SystemFolder> find();
 
+// Whether `path` is inside a trash: a Recycle Bin on Windows, the user's Trash or a volume's
+// .Trashes on macOS, or a freedesktop.org trash. Cleaning deletes such items for good instead
+// of moving them to the trash again. Only the path is examined; it need not exist.
+bool isInTrash(const QString &path);
+
 } // namespace SystemFolders

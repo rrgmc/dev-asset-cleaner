@@ -1,5 +1,6 @@
 #include "clean/Monitor.h"
 #include "model/Store.h"
+#include "ui/CleanChoice.h"
 #include "ui/CleanableListView.h"
 #include "ui/DetectDialog.h"
 #include "ui/FolderDelegate.h"
@@ -70,6 +71,10 @@ private slots:
         m_store = std::make_unique<Store>(m_dir->filePath(QStringLiteral("data.json")));
         m_store->setAutoSave(false);
         QVERIFY(m_store->load());
+        // Keep the test files out of the real trash.
+        Settings settings = m_store->settings();
+        settings.deleteDirectly = true;
+        m_store->setSettings(settings);
         m_monitor = std::make_unique<Monitor>(m_store.get());
         m_window = std::make_unique<MainWindow>(m_store.get(), m_monitor.get());
         m_window->setConfirmCleaning(false);
@@ -122,6 +127,24 @@ private slots:
         m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Whole);
         QCOMPARE(m_store->folders().size(), 2);
         QCOMPARE(m_list->currentId(), projects);
+    }
+
+    void cleaningMovesToTheTrashUnlessSetToDelete()
+    {
+        Settings settings;
+        QCOMPARE(CleanChoice::method(settings), CleanMethod::Trash);
+        settings.deleteDirectly = true;
+        QCOMPARE(CleanChoice::method(settings), CleanMethod::Delete);
+
+        // A trash is emptied, not moved to the trash again.
+        const QString projects = m_dir->filePath(QStringLiteral("projects"));
+        QCOMPARE(CleanChoice::forFolder(CleanMethod::Trash, projects), CleanMethod::Trash);
+#ifdef Q_OS_WIN
+        const QString trash = m_dir->filePath(QStringLiteral("$Recycle.Bin/S-1-5-test"));
+#else
+        const QString trash = m_dir->filePath(QStringLiteral(".Trash"));
+#endif
+        QCOMPARE(CleanChoice::forFolder(CleanMethod::Trash, trash), CleanMethod::Delete);
     }
 
     void cleanButtonCleansOneFolder()
@@ -196,7 +219,7 @@ private slots:
         QTRY_COMPARE(m_monitor->result(f.id).cleanableBytes, 4000);
 
         // Excluded subfolders are never cleaned, even when asked directly.
-        model->clean(keep);
+        model->clean(keep, CleanMethod::Delete);
         QVERIFY(!model->isBusy());
     }
 
@@ -349,7 +372,7 @@ private slots:
         QCOMPARE(m_list->currentId(), selected);
 
         // A clean changes the space to clean, and the folder moves.
-        m_monitor->clean(m_store->folders().at(2).id);
+        m_monitor->clean(m_store->folders().at(2).id, CleanMethod::Delete);
         QTRY_COMPARE(names(), (QStringList{"Item 9", "item 10", "Item 11"}));
         QTRY_VERIFY(!m_monitor->isBusy());
         QCOMPARE(m_list->currentId(), selected);

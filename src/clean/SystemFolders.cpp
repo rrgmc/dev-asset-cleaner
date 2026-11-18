@@ -164,4 +164,33 @@ QList<SystemFolder> find()
     return found;
 }
 
+bool isInTrash(const QString &path)
+{
+    const QString clean = QDir::cleanPath(QDir::fromNativeSeparators(path));
+    const QStringList parts = clean.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    // The last part is the item itself; only the folders above it make it trash.
+    for (qsizetype i = 0; i + 1 < parts.size(); ++i) {
+        const QString &part = parts.at(i);
+#ifdef Q_OS_WIN
+        if (part.compare(QStringLiteral("$Recycle.Bin"), Qt::CaseInsensitive) == 0)
+            return true;
+#else
+        // ~/.Trash and a volume's .Trashes on macOS; a volume's .Trash or .Trash-<uid> in the
+        // freedesktop.org specification.
+        if (part == QStringLiteral(".Trash") || part == QStringLiteral(".Trashes")
+            || part.startsWith(QStringLiteral(".Trash-")))
+            return true;
+#endif
+    }
+#ifndef Q_OS_WIN
+    const QString dataHome = qEnvironmentVariable("XDG_DATA_HOME");
+    const QString home =
+        QDir::cleanPath(dataHome.isEmpty() ? QDir::home().filePath(QStringLiteral(".local/share/Trash"))
+                                           : QDir(dataHome).filePath(QStringLiteral("Trash")));
+    if (clean.startsWith(home + QLatin1Char('/')))
+        return true;
+#endif
+    return false;
+}
+
 } // namespace SystemFolders

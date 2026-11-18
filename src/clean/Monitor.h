@@ -53,13 +53,13 @@ public:
 
     void rescan(const QUuid &id);
     void rescanAll();
-    // Scans the folder again and deletes what it finds. Refused while the folder is busy, and
-    // for unsafe Whole folders (see Scanner::unsafeWholeReason).
-    void clean(const QUuid &id);
-    void cleanAll();
+    // Scans the folder again and deletes what it finds, or moves it to the trash. Refused
+    // while the folder is busy, and for unsafe Whole folders (see Scanner::unsafeWholeReason).
+    void clean(const QUuid &id, CleanMethod method);
+    void cleanAll(CleanMethod method);
     // The same for the folders of these groups only.
     void rescanGroups(const QList<QUuid> &groupIds);
-    void cleanGroups(const QList<QUuid> &groupIds);
+    void cleanGroups(const QList<QUuid> &groupIds, CleanMethod method);
     // Asks running work to stop and waits for it.
     void cancelAll();
 
@@ -93,7 +93,7 @@ private:
         int generation = 0;
     };
 
-    void cleanFolders(const QList<Folder> &folders);
+    void cleanFolders(const QList<Folder> &folders, CleanMethod method);
     void syncFolders();
     void updateVolumes();
     void applyInterval();

@@ -1,5 +1,6 @@
 #include "SettingsDialog.h"
 
+#include "CleanChoice.h"
 #include "LoginItem.h"
 #include "SizeSpinBox.h"
 
@@ -15,6 +16,9 @@ SettingsDialog::SettingsDialog(const Settings &settings, bool trayAvailable, QWi
     , m_original(settings)
     , m_closeToTray(new QCheckBox(tr("&Closing the window keeps the app running in the tray"), this))
     , m_startAtSignIn(new QCheckBox(tr("&Start when I sign in"), this))
+    , m_deleteDirectly(new QCheckBox(
+          tr("Cleaning &deletes directly instead of moving to the %1").arg(CleanChoice::trashName()),
+          this))
     , m_rescan(new QSpinBox(this))
     , m_freeWarn(new SizeSpinBox(this))
     , m_totalWarn(new SizeSpinBox(this))
@@ -37,6 +41,16 @@ SettingsDialog::SettingsDialog(const Settings &settings, bool trayAvailable, QWi
                             this);
     hint->setWordWrap(true);
     form->addRow(QString(), hint);
+
+    m_deleteDirectly->setChecked(settings.deleteDirectly);
+    form->addRow(QString(), m_deleteDirectly);
+    auto *trashHint = new QLabel(
+        tr("Otherwise cleaning moves items to the %1, and holding Shift while you click Clean "
+           "deletes them directly. Items already in the %1 are always deleted.")
+            .arg(CleanChoice::trashName()),
+        this);
+    trashHint->setWordWrap(true);
+    form->addRow(QString(), trashHint);
 
     m_closeToTray->setChecked(settings.closeToTray && trayAvailable);
     m_closeToTray->setEnabled(trayAvailable);
@@ -67,6 +81,7 @@ Settings SettingsDialog::settings() const
     s.rescanMinutes = m_rescan->value();
     s.freeWarnBytes = m_freeWarn->bytes();
     s.totalWarnBytes = m_totalWarn->bytes();
+    s.deleteDirectly = m_deleteDirectly->isChecked();
     return s;
 }
 

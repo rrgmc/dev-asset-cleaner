@@ -90,6 +90,7 @@ private slots:
         settings.rescanMinutes = 5;
         settings.freeWarnBytes = 1'000'000'000LL;
         settings.totalWarnBytes = 99'000'000'000LL;
+        settings.deleteDirectly = true;
 
         Folder other;
         other.name = QStringLiteral("Cache");

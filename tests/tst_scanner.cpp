@@ -170,7 +170,7 @@ private slots:
         QCOMPARE(relativePaths(path("web"), r.items), QStringList{QStringLiteral("package.json")});
         QCOMPARE(r.cleanableBytes, 5);
         QCOMPARE(r.totalBytes, 375);
-        const CleanResult c = Scanner::clean(r.items);
+        const CleanResult c = Scanner::clean(r.items, CleanMethod::Delete);
         QVERIFY(c.failures.isEmpty());
         QVERIFY(QFileInfo::exists(path("web/node_modules/a/index.js")));
         QVERIFY(!QFileInfo::exists(path("web/package.json")));
@@ -190,10 +190,33 @@ private slots:
         QVERIFY(!r.valid);
     }
 
+    void itemsInATrashAreDeleted()
+    {
+        // A trash of its own in the temporary folder, so that nothing goes to the real one.
+#ifdef Q_OS_WIN
+        const QString trash = path(QStringLiteral("$Recycle.Bin/S-1-5-test"));
+#else
+        const QString trash = path(QStringLiteral(".Trashes/501"));
+#endif
+        writeFile(trash + QStringLiteral("/old/file"), 50);
+        QVERIFY(SystemFolders::isInTrash(trash + QStringLiteral("/old")));
+        QVERIFY(SystemFolders::isInTrash(trash + QStringLiteral("/old/file")));
+        QVERIFY(!SystemFolders::isInTrash(QFileInfo(trash).path()));
+        QVERIFY(!SystemFolders::isInTrash(path(QStringLiteral("web/node_modules"))));
+
+        const ScanResult r = Scanner::scanWhole(trash);
+        QCOMPARE(r.items.size(), 1);
+        const CleanResult c = Scanner::clean(r.items, CleanMethod::Trash);
+        QVERIFY(c.failures.isEmpty());
+        QCOMPARE(c.freedBytes, 50);
+        QCOMPARE(c.trashedBytes, 0);
+        QVERIFY(!QFileInfo::exists(trash + QStringLiteral("/old")));
+    }
+
     void cleanDeletesOnlyTheItems()
     {
         const ScanResult r = Scanner::scan(m_dir->path(), {builtIn("rust"), builtIn("node")});
-        const CleanResult c = Scanner::clean(r.items);
+        const CleanResult c = Scanner::clean(r.items, CleanMethod::Delete);
         QVERIFY2(c.failures.isEmpty(), qPrintable(c.failures.join(QLatin1Char('\n'))));
         QCOMPARE(c.freedBytes, 1870);
         QVERIFY(!QFileInfo::exists(path("rustproj/target")));
@@ -208,7 +231,7 @@ private slots:
     void cleanContentsKeepsTheFolder()
     {
         const ScanResult r = Scanner::scanWhole(path("web"));
-        const CleanResult c = Scanner::clean(r.items);
+        const CleanResult c = Scanner::clean(r.items, CleanMethod::Delete);
         QVERIFY(c.failures.isEmpty());
         QVERIFY(QFileInfo(path("web")).isDir());
         QVERIFY(QDir(path("web")).isEmpty(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot));
@@ -227,7 +250,7 @@ private slots:
 
         const ScanResult r = Scanner::scanWhole(path("modcache"));
         QCOMPARE(r.cleanableBytes, 12);
-        const CleanResult c = Scanner::clean(r.items);
+        const CleanResult c = Scanner::clean(r.items, CleanMethod::Delete);
         QVERIFY2(c.failures.isEmpty(), qPrintable(c.failures.join(QLatin1Char('\n'))));
         QVERIFY(!QFileInfo::exists(path("modcache/example.com")));
     }
@@ -241,7 +264,7 @@ private slots:
         QVERIFY(QFile::link(path("outside"), path("rustproj/target/link")));
         const ScanResult r = Scanner::scan(m_dir->path(), {builtIn("rust")});
         QCOMPARE(r.cleanableBytes, 1500);
-        const CleanResult c = Scanner::clean(r.items);
+        const CleanResult c = Scanner::clean(r.items, CleanMethod::Delete);
         QVERIFY(c.failures.isEmpty());
         QVERIFY(!QFileInfo::exists(path("rustproj/target")));
         QVERIFY(QFileInfo::exists(path("outside/precious.txt")));
