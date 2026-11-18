@@ -125,7 +125,24 @@ void Monitor::clean(const QUuid &id)
 
 void Monitor::cleanAll()
 {
-    for (const Folder &f : m_store->folders()) {
+    cleanFolders(m_store->folders());
+}
+
+void Monitor::rescanGroups(const QList<QUuid> &groupIds)
+{
+    for (const Folder &f : m_store->foldersIn(groupIds))
+        rescan(f.id);
+    updateVolumes();
+}
+
+void Monitor::cleanGroups(const QList<QUuid> &groupIds)
+{
+    cleanFolders(m_store->foldersIn(groupIds));
+}
+
+void Monitor::cleanFolders(const QList<Folder> &folders)
+{
+    for (const Folder &f : folders) {
         if (result(f.id).cleanableBytes > 0 || !result(f.id).valid)
             clean(f.id);
     }
@@ -172,6 +189,22 @@ qint64 Monitor::cleanableBytes() const
 {
     qint64 total = 0;
     for (const Folder &f : m_store->folders())
+        total += result(f.id).cleanableBytes;
+    return total;
+}
+
+qint64 Monitor::groupTotalBytes(const QList<QUuid> &groupIds) const
+{
+    qint64 total = 0;
+    for (const Folder &f : m_store->foldersIn(groupIds))
+        total += result(f.id).totalBytes;
+    return total;
+}
+
+qint64 Monitor::groupCleanableBytes(const QList<QUuid> &groupIds) const
+{
+    qint64 total = 0;
+    for (const Folder &f : m_store->foldersIn(groupIds))
         total += result(f.id).cleanableBytes;
     return total;
 }

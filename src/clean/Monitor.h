@@ -1,6 +1,7 @@
-#pragma once
+﻿#pragma once
 
 #include "Scanner.h"
+#include "model/Folder.h"
 
 #include <QFuture>
 #include <QHash>
@@ -56,12 +57,18 @@ public:
     // busy, and for unsafe "Folder contents" folders (see Scanner::unsafeReason).
     void clean(const QUuid &id);
     void cleanAll();
+    // The same for the folders of these groups only.
+    void rescanGroups(const QList<QUuid> &groupIds);
+    void cleanGroups(const QList<QUuid> &groupIds);
     // Asks running work to stop and waits for it.
     void cancelAll();
 
     // Totals over every folder's last scan.
     qint64 totalBytes() const;
     qint64 cleanableBytes() const;
+    // Totals over the folders of these groups.
+    qint64 groupTotalBytes(const QList<QUuid> &groupIds) const;
+    qint64 groupCleanableBytes(const QList<QUuid> &groupIds) const;
 
     QList<Volume> volumes() const;
     Warnings warnings() const;
@@ -88,6 +95,7 @@ private:
         int generation = 0;
     };
 
+    void cleanFolders(const QList<Folder> &folders);
     void syncFolders();
     void updateVolumes();
     void applyInterval();

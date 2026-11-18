@@ -27,6 +27,7 @@ qt_standard_project_setup()
 qt_add_library(dac_core STATIC
     src/model/CleanerType.h src/model/CleanerType.cpp
     src/model/Folder.h src/model/Folder.cpp
+    src/model/Group.h
     src/model/Store.h src/model/Store.cpp
     src/clean/KnownCaches.h src/clean/KnownCaches.cpp
     src/clean/Monitor.h src/clean/Monitor.cpp
@@ -48,6 +49,9 @@ qt_add_library(dac_ui STATIC
     src/ui/FolderDialog.h src/ui/FolderDialog.cpp
     src/ui/FolderListView.h src/ui/FolderListView.cpp
     src/ui/FolderModel.h src/ui/FolderModel.cpp
+    src/ui/GroupDelegate.h src/ui/GroupDelegate.cpp
+    src/ui/GroupListView.h src/ui/GroupListView.cpp
+    src/ui/GroupModel.h src/ui/GroupModel.cpp
     src/ui/Format.h
     src/ui/Icons.h src/ui/Icons.cpp
     src/ui/ItemCheckStyle.h src/ui/ItemCheckStyle.cpp

@@ -6,9 +6,17 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 
 ![The Dev Asset Cleaner window on macOS](docs/screenshot-macos.png)
 
-- The window lists your folders. Each row shows how much cleaning would free and how much the
-  folder holds, with a **Clean** button. The toolbar cleans the selected folder or all of
-  them.
+- Folders are kept in **groups**, listed on the left of the window. The app starts with one
+  group, **Default**, which can be renamed or deleted like any other. Select several groups
+  (Ctrl-click or Shift-click) to see their folders together. Deleting a group stops monitoring
+  its folders; nothing on disk is deleted.
+- The folder list shows the folders of the selected groups. Each row shows how much cleaning
+  would free and how much the folder holds, with a **Clean** button. The toolbar cleans the
+  selected folder or all folders of the selected groups; **Tools > Clean everything** cleans
+  every group.
+- Drag a folder onto a group to move it there, or use **Move to group** in its menu. A folder
+  path can be in one group only. Folders dropped from Explorer or Finder onto a group are added
+  to that group.
 - Each folder has one or more **cleaner types**, which say what cleaning deletes (see below).
   New folders use **Folder contents**.
 - **Detect types in a folder** searches a folder and lists the cleaner types that apply to it,
@@ -25,7 +33,8 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 - Folders are scanned in the background when added, and again every 30 minutes.
 - Closing the window keeps the app in the system tray (the menu bar on macOS, where it also
   leaves the Dock until the window shows again). The tray menu and the tooltip show the space
-  each folder uses and the free space on their disks.
+  each folder uses and the free space on their disks. With several groups, the tray menu has a
+  submenu for each group.
 - The tray icon gets an orange badge when free space is low, when a folder is over its own
   size limit, or when all folders together are over a total limit. Set the limits in Settings
   and in each folder.
@@ -89,16 +98,18 @@ the trash: cleaning is meant to free space, and it cannot be undone.
 | Key | Effect |
 |---|---|
 | Type | Filter by name or path |
-| Enter | Edit the selected folder |
+| Enter | Edit the selected folder, or rename the selected group |
 | Ctrl+K | Clean the selected folder |
-| Ctrl+Shift+K | Clean all folders |
+| Ctrl+Shift+K | Clean all folders of the selected groups |
 | Ctrl+R | Rescan the selected folder |
-| Ctrl+Shift+R, F5 | Rescan all folders |
+| Ctrl+Shift+R, F5 | Rescan all folders of the selected groups |
 | Ctrl+I | Show what cleaning the folder deletes |
 | Ctrl+O | Open the folder in Explorer or Finder |
 | Ctrl+C | Copy the folder's path |
 | Ctrl+Shift+Up, Ctrl+Shift+Down | Move the folder up or down |
-| Ctrl+N | Add a folder |
+| Ctrl+Alt+Up, Ctrl+Alt+Down | Move the group up or down |
+| Ctrl+N | Add a folder to the current group |
+| Ctrl+Shift+N | Add a group |
 | Ctrl+D | Detect the cleaner types of a folder |
 | F2 | Edit the folder |
 | Delete | Stop monitoring the folder (nothing is deleted) |
@@ -110,13 +121,13 @@ You can also drag folders from Explorer or Finder onto the list to add them.
 
 ## Data
 
-Folders, custom types and settings are saved as JSON:
+Groups and their folders, custom types and settings are saved as JSON:
 
 - Windows: `%APPDATA%\dev-asset-cleaner\dev-asset-cleaner\dev-asset-cleaner.json`
 - macOS: `~/Library/Application Support/dev-asset-cleaner/dev-asset-cleaner/dev-asset-cleaner.json`
 
 The environment variable `DAC_DATA_FILE` points the app at another file, which is useful for
-testing.
+testing. A file from a version without groups opens with its folders in a **Default** group.
 
 ## Building
 

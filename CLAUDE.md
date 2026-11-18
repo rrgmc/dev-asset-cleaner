@@ -31,16 +31,23 @@ keep fixes to those parts in step with it.
 
 ## Layout
 
-- `src/model`: `CleanerType` (rules and the built-in types), `Folder`, `Store` (JSON
-  persistence, debounced atomic saves). No widgets.
+- `src/model`: `CleanerType` (rules and the built-in types), `Group`, `Folder`, `Store` (JSON
+  persistence, debounced atomic saves). No widgets. Every folder belongs to a group
+  (`Folder::groupId`); the file nests folders in their groups (version 2), and a version 1
+  file's top-level folders load into a "Default" group. A new file starts with an empty
+  "Default" group, which is not special: deleting every group is kept.
 - `src/clean`: `Scanner` (walks a folder, finds what its types match, deletes it; `detect`
   reports per type what each rule-based type would delete, for `DetectDialog`),
   `Monitor` (runs scans and cleans on a thread pool, keeps results, free space and warnings),
   `KnownCaches` (tool caches offered in the Add menu), `SystemFolders` (the OS's trash and
   cache folders that are safe to empty, offered by `SystemFoldersDialog`; keep browser caches
   and broad folders such as `~/Library/Caches` out of it).
-- `src/ui`: widgets. `MainWindow` holds one `FolderListView` over a `FolderModel`, painted by
-  `FolderDelegate`. `DetectDialog` runs `Scanner::detect` in the background and returns the
+- `src/ui`: widgets. `MainWindow` holds a `GroupListView` over a `GroupModel` (several groups
+  can be selected) beside a `FolderListView` over a `FolderModel`, which shows the selected
+  groups' folders and is painted by `FolderDelegate`. Folders are dragged onto a group with
+  the `GroupListView::folderMimeType` drag, which `FolderListView::startDrag` starts itself
+  so that a Move drop never removes model rows. "Clean all" and "Rescan all" act on the
+  selected groups; Tools has the commands for every group. `DetectDialog` runs `Scanner::detect` in the background and returns the
   chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
 - `src/platform`: `SingleInstance`.
 - Libraries: `dac_core` (model and cleaning) and `dac_ui` (widgets), so tests can link them.

@@ -4,6 +4,8 @@
 #include "ui/FolderDelegate.h"
 #include "ui/FolderListView.h"
 #include "ui/FolderModel.h"
+#include "ui/GroupListView.h"
+#include "ui/GroupModel.h"
 #include "ui/MainWindow.h"
 #include "ui/SystemFoldersDialog.h"
 
@@ -57,6 +59,8 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(m_window.get()));
         m_list = m_window->findChild<FolderListView *>();
         QVERIFY(m_list);
+        m_groups = m_window->findChild<GroupListView *>();
+        QVERIFY(m_groups);
     }
 
     void cleanup()
@@ -116,6 +120,48 @@ private slots:
         QTRY_VERIFY(!m_monitor->isBusy());
         QVERIFY(QFileInfo(m_dir->filePath(QStringLiteral("cache"))).isDir());
         QVERIFY(!QFileInfo::exists(m_dir->filePath(QStringLiteral("cache/blob"))));
+    }
+
+    void groupsSplitTheList()
+    {
+        const QUuid first = m_store->groups().first().id;
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), {QStringLiteral("rust")});
+        const QUuid second = m_store->addGroup(QStringLiteral("Caches"));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), {}, {}, second);
+        QCOMPARE(m_store->foldersIn({second}).size(), 1);
+        QTRY_COMPARE(m_monitor->cleanableBytes(), 4700);
+
+        // Adding a folder selects its group, which shows only that group's folders.
+        QCOMPARE(m_groups->selectedIds(), QList<QUuid>{second});
+        QCOMPARE(m_list->model()->rowCount(), 1);
+
+        // Both groups selected: both folders, in the groups' order.
+        m_groups->selectAll();
+        QCOMPARE(m_groups->selectedIds(), (QList<QUuid>{first, second}));
+        QCOMPARE(m_list->model()->rowCount(), 2);
+
+        // Cleaning the selected groups leaves the other groups alone.
+        m_groups->selectId(second);
+        QTest::keyClick(m_window.get(), Qt::Key_K, Qt::ControlModifier | Qt::ShiftModifier);
+        QTRY_VERIFY(!QFileInfo::exists(m_dir->filePath(QStringLiteral("cache/blob"))));
+        QTRY_VERIFY(!m_monitor->isBusy());
+        QVERIFY(QFileInfo::exists(m_dir->filePath(QStringLiteral("projects/app/target"))));
+
+        // A folder moved to another group follows it.
+        const QUuid projects = m_store->foldersIn({first}).first().id;
+        m_store->moveToGroup(projects, second);
+        QCOMPARE(m_list->model()->rowCount(), 2);
+
+        // Deleting a group stops monitoring its folders and selects a neighbour.
+        m_store->removeGroup(second);
+        QVERIFY(m_store->folders().isEmpty());
+        QCOMPARE(m_groups->selectedIds(), QList<QUuid>{first});
+        QCOMPARE(m_list->model()->rowCount(), 0);
+
+        // With no group left there is nowhere to add folders.
+        m_store->removeGroup(first);
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")));
+        QVERIFY(m_store->folders().isEmpty());
     }
 
     void filterHidesOtherFolders()
@@ -178,6 +224,7 @@ private:
     std::unique_ptr<Monitor> m_monitor;
     std::unique_ptr<MainWindow> m_window;
     FolderListView *m_list = nullptr;
+    GroupListView *m_groups = nullptr;
 };
 
 QTEST_MAIN(TestMainWindow)
