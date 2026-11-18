@@ -33,7 +33,13 @@ FreeSpaceDialog::FreeSpaceDialog(Store *store, Monitor *monitor, QWidget *parent
     m_list->setUniformRowHeights(true);
     m_list->setSelectionMode(QAbstractItemView::NoSelection);
     m_list->setFocusPolicy(Qt::NoFocus);
-    m_list->header()->setStretchLastSection(true);
+    // The disk and path columns share the width left over by the numbers.
+    QHeaderView *header = m_list->header();
+    header->setStretchLastSection(false);
+    header->setMinimumSectionSize(header->fontMetrics().horizontalAdvance(QStringLiteral("000,0 GB")) + 16);
+    header->setSectionResizeMode(QHeaderView::ResizeToContents);
+    header->setSectionResizeMode(DiskColumn, QHeaderView::Stretch);
+    header->setSectionResizeMode(PathColumn, QHeaderView::Stretch);
     for (int c : {FreeColumn, SizeColumn, UsedColumn})
         m_list->headerItem()->setTextAlignment(c, Qt::AlignRight | Qt::AlignVCenter);
 
@@ -74,8 +80,6 @@ void FreeSpaceDialog::refresh()
             item->setToolTip(DiskColumn, tr("Free space is below the warning in the settings."));
         }
     }
-    for (int c = 0; c < PathColumn; ++c)
-        m_list->resizeColumnToContents(c);
 
     const qint64 warnBelow = m_store->settings().freeWarnBytes;
     QString note;
