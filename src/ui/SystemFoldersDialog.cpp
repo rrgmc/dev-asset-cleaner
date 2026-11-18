@@ -1,6 +1,5 @@
 #include "SystemFoldersDialog.h"
 
-#include "ItemCheckStyle.h"
 #include "model/Store.h"
 
 #include <QDialogButtonBox>
@@ -35,7 +34,6 @@ SystemFoldersDialog::SystemFoldersDialog(Store *store, const QList<SystemFolder>
     m_list->setRootIsDecorated(false);
     m_list->setUniformRowHeights(true);
     m_list->header()->setStretchLastSection(true);
-    ItemCheckStyle::apply(m_list);
     for (int i = 0; i < m_folders.size(); ++i) {
         const SystemFolder &f = m_folders.at(i);
         auto *item = new QTreeWidgetItem(m_list);
