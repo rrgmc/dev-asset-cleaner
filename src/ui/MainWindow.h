@@ -4,6 +4,7 @@
 #include "clean/Scanner.h"
 #include "model/Folder.h"
 
+#include <QElapsedTimer>
 #include <QMainWindow>
 #include <QUuid>
 
@@ -54,6 +55,7 @@ public:
 protected:
     void closeEvent(QCloseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void changeEvent(QEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
@@ -119,6 +121,10 @@ private:
     QMenu *m_trayMenu = nullptr;
     int m_trayAttempts = 0;
     bool m_trayUpdatePending = false;
+    // When and to what the window last lost activation. Clicking the notification area icon
+    // activates the taskbar first, so toggleVisible needs to know the window was in front.
+    QElapsedTimer m_deactivated;
+    bool m_lostToTaskbar = false;
     bool m_confirmCleaning = true;
     QString m_lastWarning;  // the warning the tray last notified about
     QList<QAction *> m_folderActions;  // need a selected folder

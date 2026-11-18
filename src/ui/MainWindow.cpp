@@ -58,6 +58,25 @@ constexpr int MessageTimeoutMs = 5000;
 constexpr int ErrorTimeoutMs = 15000;
 constexpr int TrayAttempts = 30;
 constexpr int TrayRetryMs = 2000;
+// How long after losing activation a tray click still counts as one on the window in front.
+constexpr int TrayClickMs = 1500;
+
+#ifdef Q_OS_WIN
+// Whether `window` belongs to the taskbar or the notification area's overflow panel.
+bool isTaskbar(HWND window)
+{
+    if (!window)
+        return false;
+    wchar_t name[64] = {};
+    if (!GetClassNameW(GetAncestor(window, GA_ROOT), name, 64))
+        return false;
+    const QString className = QString::fromWCharArray(name);
+    return className == QLatin1String("Shell_TrayWnd")
+        || className == QLatin1String("Shell_SecondaryTrayWnd")
+        || className == QLatin1String("NotifyIconOverflowWindow")
+        || className == QLatin1String("TopLevelWindowForOverflowXamlIsland");
+}
+#endif
 constexpr int MaxFailuresShown = 10;
 
 QString warningMark()
@@ -705,7 +724,13 @@ void MainWindow::toggleVisible()
 {
 #ifdef Q_OS_WIN
     // Qt's activation state can lag behind when another application took the foreground.
-    const bool inFront = GetForegroundWindow() == reinterpret_cast<HWND>(winId());
+    // Clicking the tray icon activates the taskbar before the click arrives, so the window also
+    // counts as in front when it lost activation to the taskbar.
+    const HWND foreground = GetForegroundWindow();
+    const bool lostToTaskbar = isTaskbar(foreground)
+        && (m_lostToTaskbar
+            || (m_deactivated.isValid() && m_deactivated.elapsed() < TrayClickMs));
+    const bool inFront = foreground == reinterpret_cast<HWND>(winId()) || lostToTaskbar;
 #else
     const bool inFront = isActiveWindow();
 #endif
@@ -750,6 +775,22 @@ void MainWindow::closeEvent(QCloseEvent *event)
     saveGeometryState();
     event->accept();
     QApplication::quit();
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::ActivationChange) {
+        if (isActiveWindow()) {
+            m_deactivated.invalidate();
+            m_lostToTaskbar = false;
+        } else {
+            m_deactivated.start();
+#ifdef Q_OS_WIN
+            m_lostToTaskbar = isTaskbar(GetForegroundWindow());
+#endif
+        }
+    }
+    QMainWindow::changeEvent(event);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent *event)
