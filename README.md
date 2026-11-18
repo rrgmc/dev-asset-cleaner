@@ -59,7 +59,8 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 Both kinds skip the folder's excluded subfolders. To change a folder's kind, remove it and add
 it again.
 
-**Folder > Clean subfolders** opens a list of the first-level subfolders of a Matching folder,
+**Folder > Clean subfolders**, or the **Clean subfolders** button in the box that confirms
+cleaning a Matching folder, opens a list of the first-level subfolders of a Matching folder,
 laid out like the main list. Each row shows what cleaning would free in that subfolder and has
 its own Clean button, so you can clean a folder of projects one project at a time. Sort the
 list by name or by space to clean. Excluded subfolders are listed, but cannot be cleaned.

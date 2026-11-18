@@ -933,6 +933,11 @@ void MainWindow::cleanFolder(const QUuid &id)
                             .arg(what, Format::bytes(r.cleanableBytes)),
                         QMessageBox::Cancel, this);
         QPushButton *details = box.addButton(tr("Show items…"), QMessageBox::HelpRole);
+        // A Matching folder can also be cleaned one subfolder at a time.
+        QPushButton *subfolders =
+            f->kind == Folder::Kind::Matching
+                ? box.addButton(tr("Clean subfolders…"), QMessageBox::ActionRole)
+                : nullptr;
         QPushButton *ok = box.addButton(tr("Delete"), QMessageBox::DestructiveRole);
         box.setDefaultButton(QMessageBox::Cancel);
         // The Show items button would close the box; reopen it afterwards.
@@ -941,6 +946,10 @@ void MainWindow::cleanFolder(const QUuid &id)
             if (box.clickedButton() != details)
                 break;
             ItemsDialog(f->name, f->path, r, this).exec();
+        }
+        if (subfolders && box.clickedButton() == subfolders) {
+            cleanSubfolders(id);
+            return;
         }
         if (box.clickedButton() != ok)
             return;
