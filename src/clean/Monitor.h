@@ -53,8 +53,8 @@ public:
 
     void rescan(const QUuid &id);
     void rescanAll();
-    // Scans the folder again and deletes what its types match. Refused while the folder is
-    // busy, and for unsafe "Folder contents" folders (see Scanner::unsafeReason).
+    // Scans the folder again and deletes what it finds. Refused while the folder is busy, and
+    // for unsafe Whole folders (see Scanner::unsafeWholeReason).
     void clean(const QUuid &id);
     void cleanAll();
     // The same for the folders of these groups only.

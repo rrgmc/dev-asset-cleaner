@@ -55,8 +55,9 @@ using CancelCheck = std::function<bool()>;
 
 namespace Scanner {
 
-// Walks `path` and finds what `types` would delete. Symbolic links are counted as their own
-// size and never followed. Sizes are file sizes, not the disk blocks they use.
+// Walks a Matching folder at `path` and finds the subfolders that `types` would delete. With
+// no types, nothing is deleted. Symbolic links are counted as their own size and never
+// followed. Sizes are file sizes, not the disk blocks they use.
 //
 // `excludes` names entries directly inside `path` (first-level subfolders) that are never
 // deleted or searched; they still count toward the folder's total size. Names compare without
@@ -64,10 +65,13 @@ namespace Scanner {
 ScanResult scan(const QString &path, const QList<CleanerType> &types,
                 const CancelCheck &canceled = {}, const QStringList &excludes = {});
 
-// Finds which of `types` apply to `path`: walks it once with the rules of every rule-based type
-// and reports, per type, what it would delete. A folder that several types match counts for
-// each of them. "Folder contents" types are never detected, since they match any folder and
-// would delete everything in it. `excludes` works as in scan().
+// Lists everything inside a Whole folder at `path`, except `excludes` (as in scan()).
+ScanResult scanWhole(const QString &path, const CancelCheck &canceled = {},
+                     const QStringList &excludes = {});
+
+// Finds which of `types` apply to `path`: walks it once with the rules of every type and
+// reports, per type, what it would delete. A folder that several types match counts for each
+// of them. `excludes` works as in scan(). Detection never suggests a Whole folder.
 //
 // Today detection covers the rule-based types, which are programming build outputs and
 // dependencies. Other kinds of detection can add their findings to DetectResult later.
@@ -77,9 +81,9 @@ DetectResult detect(const QString &path, const QList<CleanerType> &types,
 // The size of a file, or of a folder and everything below it.
 qint64 treeSize(const QString &path, const CancelCheck &canceled = {});
 
-// Why cleaning `path` with `types` is refused, or an empty string. "Folder contents" is refused
-// on a drive's root, the home folder and the folders above it.
-QString unsafeReason(const QString &path, const QList<CleanerType> &types);
+// Why cleaning `path` as a Whole folder is refused, or an empty string. It is refused on a
+// drive's root, the home folder and the folders above it. Matching folders are always safe.
+QString unsafeWholeReason(const QString &path);
 
 // Deletes the items. Read-only files and folders (such as Go's module cache) are made
 // writable first.

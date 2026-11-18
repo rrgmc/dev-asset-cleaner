@@ -5,7 +5,7 @@
 
 // A folder of the operating system whose contents are safe to delete: a trash, or a cache or
 // set of reports that the system or a driver rebuilds when it needs them. Offered by
-// SystemFoldersDialog, with the "Folder contents" type.
+// SystemFoldersDialog, as Whole folders.
 //
 // Only folders that nothing depends on are listed. Broad cache folders such as
 // ~/Library/Caches and ~/.cache are left out on purpose: they hold the caches of browsers and

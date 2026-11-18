@@ -151,11 +151,23 @@ private:
     QStringList m_excludes;
 };
 
-bool hasContentsType(const QList<CleanerType> &types)
+// Checks that the folder can be read, lets `fill` find the items, and sorts them.
+ScanResult runScan(const QString &path, const CancelCheck &canceled,
+                   const std::function<void(ScanResult &)> &fill)
 {
-    return std::any_of(types.cbegin(), types.cend(), [](const CleanerType &t) {
-        return t.mode == CleanerType::Mode::Contents;
-    });
+    ScanResult result;
+    const QFileInfo root(path);
+    if (!root.exists() || !root.isDir())
+        result.error = tr("The folder does not exist.");
+    else if (!root.isReadable())
+        result.error = tr("The folder cannot be read.");
+    else
+        fill(result);
+    std::sort(result.items.begin(), result.items.end(),
+              [](const ScanItem &a, const ScanItem &b) { return a.bytes > b.bytes; });
+    result.valid = !(canceled && canceled());
+    result.finishedAt = QDateTime::currentDateTime();
+    return result;
 }
 
 void makeWritable(const QString &path, bool isDir)
@@ -174,14 +186,20 @@ namespace Scanner {
 ScanResult scan(const QString &path, const QList<CleanerType> &types, const CancelCheck &canceled,
                 const QStringList &excludes)
 {
-    ScanResult result;
-    const QFileInfo root(path);
-    if (!root.exists() || !root.isDir()) {
-        result.error = tr("The folder does not exist.");
-    } else if (!root.isReadable()) {
-        result.error = tr("The folder cannot be read.");
-    } else if (hasContentsType(types)) {
-        // Everything inside the folder; the other types add nothing to that.
+    return runScan(path, canceled, [&](ScanResult &result) {
+        Walker walker(compile(types), canceled,
+                      [&result](const QString &item, qint64 bytes, const QList<int> &) {
+                          result.items.append(ScanItem{item, bytes});
+                          result.cleanableBytes += bytes;
+                      },
+                      excludes);
+        result.totalBytes = walker.walk(path);
+    });
+}
+
+ScanResult scanWhole(const QString &path, const CancelCheck &canceled, const QStringList &excludes)
+{
+    return runScan(path, canceled, [&](ScanResult &result) {
         const QFileInfoList entries = QDir(path).entryInfoList(AllEntries, QDir::NoSort);
         for (const QFileInfo &e : entries) {
             if (canceled && canceled())
@@ -194,21 +212,7 @@ ScanResult scan(const QString &path, const QList<CleanerType> &types, const Canc
             result.items.append(ScanItem{e.filePath(), bytes});
             result.cleanableBytes += bytes;
         }
-    } else {
-        Walker walker(compile(types), canceled,
-                      [&result](const QString &item, qint64 bytes, const QList<int> &) {
-                          result.items.append(ScanItem{item, bytes});
-                          result.cleanableBytes += bytes;
-                      },
-                      excludes);
-        result.totalBytes = walker.walk(path);
-    }
-
-    std::sort(result.items.begin(), result.items.end(),
-              [](const ScanItem &a, const ScanItem &b) { return a.bytes > b.bytes; });
-    result.valid = !(canceled && canceled());
-    result.finishedAt = QDateTime::currentDateTime();
-    return result;
+    });
 }
 
 qint64 treeSize(const QString &path, const CancelCheck &canceled)
@@ -241,11 +245,9 @@ DetectResult detect(const QString &path, const QList<CleanerType> &types,
         result.valid = true;
         return result;
     }
-    // Only types that pick out parts of a folder can be detected. "Folder contents" would
-    // match any folder and delete everything in it, so it is never suggested.
     QList<CleanerType> candidates;
     for (const CleanerType &t : types) {
-        if (t.mode == CleanerType::Mode::Rules && !t.rules.isEmpty())
+        if (!t.rules.isEmpty())
             candidates.append(t);
     }
     QList<Detection> found(candidates.size());
@@ -276,10 +278,8 @@ DetectResult detect(const QString &path, const QList<CleanerType> &types,
     return result;
 }
 
-QString unsafeReason(const QString &path, const QList<CleanerType> &types)
+QString unsafeWholeReason(const QString &path)
 {
-    if (!hasContentsType(types))
-        return {};
     const QString clean = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
     if (clean.isEmpty())
         return tr("The folder has no path.");

@@ -97,9 +97,9 @@ private slots:
         QCOMPARE(relativePaths(m_dir->path(), r.items), QStringList{QStringLiteral("rustproj/target")});
     }
 
-    void contentsTakesEverything()
+    void wholeFolderTakesEverything()
     {
-        const ScanResult r = Scanner::scan(path("web"), {builtIn("contents"), builtIn("rust")});
+        const ScanResult r = Scanner::scanWhole(path("web"));
         QCOMPARE(relativePaths(path("web"), r.items),
                  (QStringList{QStringLiteral("node_modules"), QStringLiteral("package.json")}));
         QCOMPARE(r.cleanableBytes, 375);
@@ -131,7 +131,7 @@ private slots:
 
     void excludedFoldersSurviveContents()
     {
-        const ScanResult r = Scanner::scan(path("web"), {builtIn("contents")}, {},
+        const ScanResult r = Scanner::scanWhole(path("web"), {},
                                            {QStringLiteral("node_modules")});
         QCOMPARE(relativePaths(path("web"), r.items), QStringList{QStringLiteral("package.json")});
         QCOMPARE(r.cleanableBytes, 5);
@@ -144,7 +144,7 @@ private slots:
 
     void missingFolderIsAnError()
     {
-        const ScanResult r = Scanner::scan(path("nope"), {builtIn("contents")});
+        const ScanResult r = Scanner::scanWhole(path("nope"));
         QVERIFY(r.valid);
         QVERIFY(!r.error.isEmpty());
         QVERIFY(r.items.isEmpty());
@@ -173,7 +173,7 @@ private slots:
 
     void cleanContentsKeepsTheFolder()
     {
-        const ScanResult r = Scanner::scan(path("web"), {builtIn("contents")});
+        const ScanResult r = Scanner::scanWhole(path("web"));
         const CleanResult c = Scanner::clean(r.items);
         QVERIFY(c.failures.isEmpty());
         QVERIFY(QFileInfo(path("web")).isDir());
@@ -191,7 +191,7 @@ private slots:
         QVERIFY(QFile::setPermissions(path("modcache/example.com/mod@v1"), readOnlyDir));
         QVERIFY(QFile::setPermissions(path("modcache/example.com"), readOnlyDir));
 
-        const ScanResult r = Scanner::scan(path("modcache"), {builtIn("contents")});
+        const ScanResult r = Scanner::scanWhole(path("modcache"));
         QCOMPARE(r.cleanableBytes, 12);
         const CleanResult c = Scanner::clean(r.items);
         QVERIFY2(c.failures.isEmpty(), qPrintable(c.failures.join(QLatin1Char('\n'))));
@@ -223,7 +223,7 @@ private slots:
         QStringList ids;
         for (const Detection &d : r.detections)
             ids.append(d.typeId);
-        // Largest first; "Folder contents" is never detected.
+        // Largest first.
         QCOMPARE(ids, (QStringList{QStringLiteral("all-languages"), QStringLiteral("rust"),
                                    QStringLiteral("node"), QStringLiteral("cpp")}));
         QCOMPARE(r.detections.at(1).bytes, 1500);
@@ -267,26 +267,38 @@ private slots:
 
     void unsafeFolders()
     {
-        const QList<CleanerType> contents{builtIn("contents")};
-        QVERIFY(!Scanner::unsafeReason(QDir::homePath(), contents).isEmpty());
-        QVERIFY(!Scanner::unsafeReason(QDir::rootPath(), contents).isEmpty());
-        QVERIFY(!Scanner::unsafeReason(QDir(QDir::homePath()).filePath(QStringLiteral("..")), contents)
+        QVERIFY(!Scanner::unsafeWholeReason(QDir::homePath()).isEmpty());
+        QVERIFY(!Scanner::unsafeWholeReason(QDir::rootPath()).isEmpty());
+        QVERIFY(!Scanner::unsafeWholeReason(QDir(QDir::homePath()).filePath(QStringLiteral("..")))
                      .isEmpty());
-        QVERIFY(Scanner::unsafeReason(path("web"), contents).isEmpty());
-        // Rules only delete matching subfolders, so any folder is fine.
-        QVERIFY(Scanner::unsafeReason(QDir::homePath(), {builtIn("rust")}).isEmpty());
+        QVERIFY(Scanner::unsafeWholeReason(path("web")).isEmpty());
+    }
+
+    void noTypesDeleteNothing()
+    {
+        // A Matching folder whose types were all deleted must not turn into a whole folder.
+        const ScanResult r = Scanner::scan(m_dir->path(), {});
+        QVERIFY(r.valid);
+        QVERIFY(r.items.isEmpty());
+        QCOMPARE(r.cleanableBytes, 0);
+        QCOMPARE(r.totalBytes, 10 + 20 + 1500 + 40 + 5 + 300 + 70 + 3 + 200);
+    }
+
+    void noBuiltInTypeTakesEverything()
+    {
+        for (const CleanerType &t : BuiltInTypes::all())
+            QVERIFY2(!t.rules.isEmpty(), qPrintable(t.id));
     }
 
     void systemFoldersAreSafe()
     {
         // Whatever this computer has: each folder exists, is listed once and may be emptied.
-        const QList<CleanerType> contents{builtIn("contents")};
         QSet<QString> paths;
         for (const SystemFolder &f : SystemFolders::find()) {
             QVERIFY2(QFileInfo(f.path).isDir(), qPrintable(f.path));
             QVERIFY(!f.name.isEmpty());
             QVERIFY(!f.note.isEmpty());
-            QVERIFY2(Scanner::unsafeReason(f.path, contents).isEmpty(), qPrintable(f.path));
+            QVERIFY2(Scanner::unsafeWholeReason(f.path).isEmpty(), qPrintable(f.path));
             QVERIFY(!paths.contains(f.path));
             paths.insert(f.path);
         }

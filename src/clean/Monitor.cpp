@@ -9,6 +9,22 @@
 namespace {
 constexpr int VolumeIntervalMs = 60 * 1000;
 constexpr int MaxThreads = 2;  // scans are bound by the disk, not the processor
+
+using FolderScan = std::function<ScanResult(const CancelCheck &)>;
+
+// Scans the folder as its kind says, with copies of what that needs, for another thread.
+FolderScan folderScan(const Store *store, const Folder &f)
+{
+    if (f.kind == Folder::Kind::Whole) {
+        return [path = f.path, excludes = f.excludes](const CancelCheck &canceled) {
+            return Scanner::scanWhole(path, canceled, excludes);
+        };
+    }
+    return [path = f.path, types = store->typesFor(f),
+            excludes = f.excludes](const CancelCheck &canceled) {
+        return Scanner::scan(path, types, canceled, excludes);
+    };
+}
 } // namespace
 
 Monitor::Monitor(Store *store, QObject *parent)
@@ -68,13 +84,10 @@ void Monitor::rescan(const QUuid &id)
     entry.state = State::Scanning;
     entry.cancel = std::make_shared<std::atomic_bool>(false);
     const int generation = ++entry.generation;
-    const QString path = f->path;
-    const QList<CleanerType> types = m_store->typesFor(*f);
-    const QStringList excludes = f->excludes;
+    const FolderScan scan = folderScan(m_store, *f);
     const auto cancel = entry.cancel;
-    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, path, types, excludes, cancel] {
-        const ScanResult result =
-            Scanner::scan(path, types, [cancel] { return cancel->load(); }, excludes);
+    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, scan, cancel] {
+        const ScanResult result = scan([cancel] { return cancel->load(); });
         QMetaObject::invokeMethod(this, [this, id, generation, result] {
             finish(id, generation, result, nullptr);
         });
@@ -98,26 +111,26 @@ void Monitor::clean(const QUuid &id)
     Entry &entry = m_entries[id];
     if (entry.state != State::Idle)
         return;
-    const QString path = f->path;
-    const QList<CleanerType> types = m_store->typesFor(*f);
-    const QStringList excludes = f->excludes;
-    const QString reason = Scanner::unsafeReason(path, types);
-    if (!reason.isEmpty()) {
-        emit cleanRefused(id, reason);
-        return;
+    if (f->kind == Folder::Kind::Whole) {
+        const QString reason = Scanner::unsafeWholeReason(f->path);
+        if (!reason.isEmpty()) {
+            emit cleanRefused(id, reason);
+            return;
+        }
     }
     entry.state = State::Cleaning;
     entry.cancel = std::make_shared<std::atomic_bool>(false);
     const int generation = ++entry.generation;
+    const FolderScan scan = folderScan(m_store, *f);
     const auto cancel = entry.cancel;
-    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, path, types, excludes, cancel] {
+    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, scan, cancel] {
         const CancelCheck canceled = [cancel] { return cancel->load(); };
         // Scan again rather than trust an old result: the folder may have changed since.
-        const ScanResult before = Scanner::scan(path, types, canceled, excludes);
+        const ScanResult before = scan(canceled);
         CleanResult cleanResult;
         if (before.valid && before.error.isEmpty())
             cleanResult = Scanner::clean(before.items, canceled);
-        const ScanResult after = Scanner::scan(path, types, canceled, excludes);
+        const ScanResult after = scan(canceled);
         QMetaObject::invokeMethod(this, [this, id, generation, after, cleanResult] {
             finish(id, generation, after, &cleanResult);
         });

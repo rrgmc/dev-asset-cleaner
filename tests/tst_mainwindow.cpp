@@ -2,6 +2,7 @@
 #include "model/Store.h"
 #include "ui/DetectDialog.h"
 #include "ui/FolderDelegate.h"
+#include "ui/FolderDialog.h"
 #include "ui/FolderListView.h"
 #include "ui/FolderModel.h"
 #include "ui/GroupListView.h"
@@ -10,10 +11,12 @@
 #include "ui/SystemFoldersDialog.h"
 
 #include <QApplication>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPushButton>
 #include <QTemporaryDir>
 #include <QTreeWidget>
@@ -73,10 +76,10 @@ private slots:
 
     void addedFoldersAreScanned()
     {
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), {QStringLiteral("rust")});
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching, {QStringLiteral("rust")});
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole);
         QCOMPARE(m_store->folders().size(), 2);
-        QCOMPARE(m_store->folders().at(1).typeIds, QStringList{BuiltInTypes::contentsId()});
+        QCOMPARE(m_store->folders().at(1).kind, Folder::Kind::Whole);
 
         const QUuid projects = m_store->folders().at(0).id;
         QTRY_VERIFY(m_monitor->result(projects).valid);
@@ -85,15 +88,15 @@ private slots:
         QCOMPARE(m_monitor->totalBytes(), 4710);
 
         // Adding the same folder again selects it instead.
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Whole);
         QCOMPARE(m_store->folders().size(), 2);
         QCOMPARE(m_list->currentId(), projects);
     }
 
     void cleanButtonCleansOneFolder()
     {
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), {QStringLiteral("rust")});
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching, {QStringLiteral("rust")});
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole);
         QTRY_COMPARE(m_monitor->cleanableBytes(), 4700);
 
         const QModelIndex first = m_list->folderModel()->index(0);
@@ -112,8 +115,8 @@ private slots:
 
     void cleanAllCleansEveryFolder()
     {
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), {QStringLiteral("rust")});
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching, {QStringLiteral("rust")});
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole);
         QTRY_COMPARE(m_monitor->cleanableBytes(), 4700);
         QTest::keyClick(m_window.get(), Qt::Key_K, Qt::ControlModifier | Qt::ShiftModifier);
         QTRY_COMPARE(m_monitor->cleanableBytes(), 0);
@@ -125,9 +128,9 @@ private slots:
     void groupsSplitTheList()
     {
         const QUuid first = m_store->groups().first().id;
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), {QStringLiteral("rust")});
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching, {QStringLiteral("rust")});
         const QUuid second = m_store->addGroup(QStringLiteral("Caches"));
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), {}, {}, second);
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole, {}, {}, second);
         QCOMPARE(m_store->foldersIn({second}).size(), 1);
         QTRY_COMPARE(m_monitor->cleanableBytes(), 4700);
 
@@ -160,14 +163,14 @@ private slots:
 
         // With no group left there is nowhere to add folders.
         m_store->removeGroup(first);
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole);
         QVERIFY(m_store->folders().isEmpty());
     }
 
     void filterHidesOtherFolders()
     {
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), {QStringLiteral("rust")});
-        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching, {QStringLiteral("rust")});
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole);
         auto *filter = m_window->findChild<QLineEdit *>();
         QVERIFY(filter);
         // The names, not the temporary path, which could contain anything.
@@ -202,18 +205,41 @@ private slots:
         writeFile(m_dir->filePath(QStringLiteral("projects/web/node_modules/x.js")), 300);
         const QString projects = QDir::cleanPath(m_dir->filePath(QStringLiteral("projects")));
         // A folder in the list brings its excluded folders to the search.
-        m_window->addFolderPath(projects, {QStringLiteral("rust")}, {}, {},
+        m_window->addFolderPath(projects, Folder::Kind::Matching, {QStringLiteral("rust")}, {}, {},
                                 {QStringLiteral("app")});
         DetectDialog dialog(m_store.get(), projects);
         QCOMPARE(dialog.excludes(), QStringList{QStringLiteral("app")});
         dialog.show();
         auto *tree = dialog.findChild<QTreeWidget *>();
         QVERIFY(tree);
-        // JavaScript only; nothing in the tree offers "Folder contents".
+        // JavaScript, and "All programming languages", which starts unchecked.
         QTRY_COMPARE(tree->topLevelItemCount(), 2);
         QCOMPARE(dialog.typeIds(), QStringList{QStringLiteral("node")});
-        for (int i = 0; i < tree->topLevelItemCount(); ++i)
-            QVERIFY(tree->topLevelItem(i)->text(0) != QStringLiteral("Folder contents"));
+    }
+
+    void folderDialogPicksTheKind()
+    {
+        Folder f;
+        f.path = QDir::cleanPath(m_dir->filePath(QStringLiteral("projects")));
+        f.kind = Folder::Kind::Matching;
+        f.typeIds = {QStringLiteral("rust")};
+        f.excludes = {QStringLiteral("app")};
+        FolderDialog dialog(m_store.get(), f);
+        auto *kind = dialog.findChild<QComboBox *>();
+        auto *types = dialog.findChild<QListWidget *>();
+        QVERIFY(kind && types);
+        // Every entry in the list is a type that matches folders; the kind is chosen apart.
+        QCOMPARE(types->count(), BuiltInTypes::all().size());
+        QVERIFY(types->isEnabled());
+        QCOMPARE(dialog.folder().typeIds, QStringList{QStringLiteral("rust")});
+
+        kind->setCurrentIndex(kind->findData(static_cast<int>(Folder::Kind::Whole)));
+        QVERIFY(!types->isEnabled());
+        const Folder whole = dialog.folder();
+        QCOMPARE(whole.kind, Folder::Kind::Whole);
+        QVERIFY(whole.typeIds.isEmpty());
+        // Both kinds keep their excluded folders.
+        QCOMPARE(whole.excludes, QStringList{QStringLiteral("app")});
     }
 
     void systemFoldersDialogSkipsListedFolders()
@@ -221,7 +247,7 @@ private slots:
         const QString cache = QDir::cleanPath(m_dir->filePath(QStringLiteral("cache")));
         const QString trash = QDir::cleanPath(m_dir->filePath(QStringLiteral("trash")));
         QVERIFY(QDir().mkpath(trash));
-        m_window->addFolderPath(cache);
+        m_window->addFolderPath(cache, Folder::Kind::Whole);
         const QList<SystemFolder> folders{{QStringLiteral("Cache"), cache, QStringLiteral("c")},
                                           {QStringLiteral("Trash"), trash, QStringLiteral("t")}};
         SystemFoldersDialog dialog(m_store.get(), folders);

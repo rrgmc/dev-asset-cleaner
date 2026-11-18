@@ -137,14 +137,16 @@ private slots:
         QCOMPARE(types.at(1).id, QStringLiteral("custom-1"));
     }
 
-    void unknownTypesFallBackToContents()
+    void unknownTypesAreDropped()
     {
+        // Never a fallback to deleting everything.
         Store store(QStringLiteral("unused.json"));
         Folder f;
         f.typeIds = {QStringLiteral("gone")};
-        const QList<CleanerType> types = store.typesFor(f);
-        QCOMPARE(types.size(), 1);
-        QCOMPARE(types.first().id, BuiltInTypes::contentsId());
+        QVERIFY(store.typesFor(f).isEmpty());
+        f.typeIds = {QStringLiteral("rust")};
+        f.kind = Folder::Kind::Whole;
+        QVERIFY(store.typesFor(f).isEmpty());
     }
 
     void customTypeCannotReplaceBuiltIn()
@@ -154,13 +156,56 @@ private slots:
         const QString file = dir.filePath(QStringLiteral("data.json"));
         QFile out(file);
         QVERIFY(out.open(QIODevice::WriteOnly));
-        out.write(R"({"types":[{"id":"rust","name":"Evil","mode":"contents"}]})");
+        out.write(R"({"types":[{"id":"rust","name":"Evil","rules":[{"pattern":"*"}]}]})");
         out.close();
 
         Store store(file);
         QVERIFY(store.load());
         QVERIFY(store.customTypes().isEmpty());
-        QCOMPARE(store.type(QStringLiteral("rust"))->mode, CleanerType::Mode::Rules);
+        QCOMPARE(store.type(QStringLiteral("rust"))->name, QStringLiteral("Rust"));
+    }
+
+    void oldContentsTypesBecomeWholeFolders()
+    {
+        // Version 2 had "Folder contents" as a type, built in or custom.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString file = dir.filePath(QStringLiteral("data.json"));
+        QFile out(file);
+        QVERIFY(out.open(QIODevice::WriteOnly));
+        out.write(R"({"version":2,
+            "types":[{"id":"mine","name":"Mine","mode":"contents"},
+                     {"id":"make","name":"Make","mode":"rules","rules":[{"pattern":"build"}]}],
+            "groups":[{"name":"g","folders":[
+                {"name":"builtin","path":"/a","types":["contents"]},
+                {"name":"custom","path":"/b","types":["mine"],"excludes":["keep"]},
+                {"name":"none","path":"/c","types":[]},
+                {"name":"rules","path":"/d","types":["rust","make"]},
+                {"name":"future","path":"/e","kind":"something-new","types":["rust"]}]}]})");
+        out.close();
+
+        Store store(file);
+        QVERIFY(store.load());
+        QCOMPARE(store.customTypes().size(), 1);
+        QCOMPARE(store.customTypes().first().id, QStringLiteral("make"));
+        const QList<Folder> folders = store.folders();
+        QCOMPARE(folders.size(), 5);
+        for (int i = 0; i < 3; ++i) {
+            QCOMPARE(folders.at(i).kind, Folder::Kind::Whole);
+            QVERIFY(folders.at(i).typeIds.isEmpty());
+        }
+        QCOMPARE(folders.at(1).excludes, QStringList{QStringLiteral("keep")});
+        QCOMPARE(folders.at(3).kind, Folder::Kind::Matching);
+        QCOMPARE(folders.at(3).typeIds, (QStringList{QStringLiteral("rust"), QStringLiteral("make")}));
+        // A kind this version does not know deletes no more than its types match.
+        QCOMPARE(folders.at(4).kind, Folder::Kind::Matching);
+
+        // Saved again, the kinds are kept and the old type is gone.
+        QVERIFY(store.save());
+        Store again(file);
+        QVERIFY(again.load());
+        QCOMPARE(again.folders().at(0).kind, Folder::Kind::Whole);
+        QCOMPARE(again.folders().at(3).kind, Folder::Kind::Matching);
     }
 
     void brokenFileIsAnError()

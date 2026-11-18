@@ -17,13 +17,13 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 - Drag a folder onto a group to move it there, or use **Move to group** in its menu. A folder
   path can be in one group only. Folders dropped from Explorer or Finder onto a group are added
   to that group.
-- Each folder has one or more **cleaner types**, which say what cleaning deletes (see below).
-  New folders use **Folder contents**.
+- Each folder has a **kind**, which says what cleaning deletes (see below): everything in it,
+  or only the subfolders that its **cleaner types** match.
 - **Detect types in a folder** searches a folder and lists the cleaner types that apply to it,
   with what each would free. Check the ones to keep, and the folder is added with them, or an
   existing folder switches to them.
-- Each folder can **exclude** some of its first-level subfolders, such as a project you are
-  working on. Cleaning never searches or deletes them, with any type. Set them in the folder's
+- Each folder, of either kind, can **exclude** some of its first-level subfolders, such as a
+  project you are working on. Cleaning never searches or deletes them. Set them in the folder's
   settings or with **Exclude** in Detect types.
 - The **Add** button also offers the tool caches it finds on this computer, such as the Go
   module cache, the npm cache, Gradle's caches and Xcode's derived data.
@@ -44,18 +44,20 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 - Settings can **start the app when you sign in** (on macOS 13 and later). It then starts
   hidden in the tray or menu bar.
 
+## Kinds of folder
+
+- **Whole folder.** Cleaning deletes everything inside the folder, but keeps the folder
+  itself. Use it for caches and download folders. Tool caches and system folders are added as
+  this kind. For safety, it refuses to clean a drive's root, your home folder or a folder above
+  it.
+- **Matching folders.** Cleaning deletes only the subfolders, at any depth, that the folder's
+  cleaner types match. Use it for a folder of projects. Without types, it deletes nothing.
+
+Both kinds skip the folder's excluded subfolders. Pick the kind in the folder's settings.
+
 ## Cleaner types
 
-A cleaner type says what cleaning a folder deletes. There are two kinds:
-
-- **Everything in the folder.** Cleaning deletes everything inside the folder, but keeps the
-  folder itself. The built-in **Folder contents** type works this way. Use it for caches and
-  download folders. For safety, it refuses to clean a drive's root, your home folder or a folder
-  above it.
-- **Matching folders.** Cleaning deletes only the subfolders, at any depth, that match one of
-  the type's rules. Use it for a folder of projects.
-
-A rule has a folder name and, optionally, the names of files that must sit next to that folder.
+A cleaner type is a set of rules for a Matching folder. A rule has a folder name and, optionally, the names of files that must sit next to that folder.
 For example, Rust's rule is `target` next to `Cargo.toml`, so a `target` folder in a project
 without `Cargo.toml` is left alone. Both names take the wildcards `*` and `?`, and ignore case.
 A matched folder is deleted as a whole and not searched further.
@@ -64,7 +66,6 @@ The built-in types:
 
 | Type | Deletes |
 |---|---|
-| Folder contents | Everything in the folder |
 | Rust | `target` next to `Cargo.toml` |
 | C and C++ (CMake) | `build`, `build-*`, `cmake-build-*` and `out` next to `CMakeLists.txt` |
 | JavaScript and TypeScript | `node_modules`, `.next`, `.nuxt`, `.turbo`, `.parcel-cache` and `.svelte-kit` next to `package.json` |
@@ -82,9 +83,9 @@ To find which types fit a folder, use **File > Detect types in a folder** (or **
 types** in a folder's right-click menu). It walks the folder once with the rules of every type
 that matches folders, and lists each type that found something, with its folders and their
 size. "All programming languages" is listed too, but starts unchecked, since it repeats the
-others. Detection never suggests **Folder contents**, which would delete everything in the
-folder. It skips the excluded subfolders. Detection covers programming build outputs and
-dependencies today; other kinds of findings can be added to it later.
+others. Accepting makes the folder a Matching folder; detection never makes a Whole folder. It
+skips the excluded subfolders. Detection covers programming build outputs and dependencies
+today; other kinds of findings can be added to it later.
 
 Add your own types in **Tools > Cleaner types**. A built-in type cannot be changed, but
 **Duplicate** makes an editable copy of it. A folder can use several types at once, for example

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "clean/Scanner.h"
+#include "model/Folder.h"
 
 #include <QMainWindow>
 #include <QUuid>
@@ -29,9 +30,9 @@ public:
     void toggleVisible();
     void showMessage(const QString &text, bool error = false);
 
-    // Adds a folder with the given types and excluded first-level subfolders to a group (by
-    // default the current one), or selects it when it is in a group already.
-    void addFolderPath(const QString &path, const QStringList &typeIds = {},
+    // Adds a folder of this kind, with the given types and excluded first-level subfolders, to
+    // a group (by default the current one), or selects it when it is in a group already.
+    void addFolderPath(const QString &path, Folder::Kind kind, const QStringList &typeIds = {},
                        const QString &name = {}, const QUuid &groupId = {},
                        const QStringList &excludes = {});
     // Shows the folder's group, if it is not shown, and selects the folder.

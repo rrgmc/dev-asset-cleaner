@@ -26,8 +26,8 @@ SystemFoldersDialog::SystemFoldersDialog(Store *store, const QList<SystemFolder>
     resize(680, 420);
 
     auto *hint = new QLabel(tr("Trash and cache folders of the operating system that are safe to "
-                               "empty. Each one is added with the \"Folder contents\" type, and "
-                               "nothing is deleted until you clean it."),
+                               "empty. Each one is added as a whole folder, and nothing is "
+                               "deleted until you clean it."),
                             this);
     hint->setWordWrap(true);
 

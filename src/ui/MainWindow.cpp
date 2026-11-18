@@ -2,6 +2,7 @@
 
 #include "AppInfo.h"
 #include "DetectDialog.h"
+#include "ExcludeDialog.h"
 #include "SystemFoldersDialog.h"
 #include "FolderDialog.h"
 #include "FolderListView.h"
@@ -94,7 +95,7 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     connect(m_list, &FolderListView::currentFolderChanged, this, &MainWindow::updateFolderActions);
     connect(m_list, &FolderListView::filesDropped, this, [this](const QStringList &paths) {
         for (const QString &p : paths)
-            addFolderPath(p);
+            addFolderPath(p, Folder::Kind::Whole);
     });
     connect(m_groups, &GroupListView::selectionChangedIds, this, &MainWindow::onGroupsSelected);
     connect(m_groups, &GroupListView::groupContextMenu, this, &MainWindow::showGroupContextMenu);
@@ -103,7 +104,7 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     connect(m_groups, &GroupListView::filesDropped, this,
             [this](const QStringList &paths, const QUuid &groupId) {
                 for (const QString &p : paths)
-                    addFolderPath(p, {}, {}, groupId);
+                    addFolderPath(p, Folder::Kind::Whole, {}, {}, groupId);
             });
     connect(m_list, &FolderListView::typed, this, [this](const QString &text) {
         m_filter->setFocus(Qt::ShortcutFocusReason);
@@ -374,7 +375,7 @@ void MainWindow::fillAddMenu(QMenu *menu)
         const bool present = m_store->folderWithPath(cache.path) != nullptr;
         QAction *a = menu->addAction(
             tr("%1  (%2)").arg(cache.name, QDir::toNativeSeparators(cache.path)), this,
-            [this, cache] { addFolderPath(cache.path, {BuiltInTypes::contentsId()}, cache.name); });
+            [this, cache] { addFolderPath(cache.path, Folder::Kind::Whole, {}, cache.name); });
         a->setEnabled(!present);
     }
 }
@@ -747,8 +748,9 @@ void MainWindow::addFolder()
     const QString dir = QFileDialog::getExistingDirectory(this, tr("Add folder"));
     if (dir.isEmpty())
         return;
-    // New folders start with "Folder contents"; the dialog picks the type.
+    // New folders start as Whole folders; the dialog picks the kind.
     Folder f;
+    f.kind = Folder::Kind::Whole;
     f.path = QDir::cleanPath(QDir::fromNativeSeparators(dir));
     f.name = QFileInfo(f.path).fileName();
     f.groupId = groupId;
@@ -762,7 +764,7 @@ void MainWindow::addFolder()
         return;
     const Folder chosen = dialog.folder();
     if (m_store->folderWithPath(chosen.path)) {
-        addFolderPath(chosen.path);  // selects it
+        addFolderPath(chosen.path, chosen.kind);  // selects it
         return;
     }
     Folder added = chosen;
@@ -780,12 +782,12 @@ void MainWindow::detectTypes(const QUuid &id)
         return;
     const QString path = dialog.path();
     const QStringList types = dialog.typeIds();
-    // Detection never picks "Folder contents", and an empty list would mean it.
     if (types.isEmpty())
         return;
     // The dialog's folder may be another one already in the list.
     if (const Folder *f = m_store->folderWithPath(path)) {
         Folder updated = *f;
+        updated.kind = Folder::Kind::Matching;
         updated.typeIds = types;
         updated.excludes = dialog.excludes();
         m_store->updateFolder(updated);
@@ -794,7 +796,7 @@ void MainWindow::detectTypes(const QUuid &id)
         showMessage(tr("%1 now uses the detected types.").arg(updated.name));
         return;
     }
-    addFolderPath(path, types, {}, {}, dialog.excludes());
+    addFolderPath(path, Folder::Kind::Matching, types, {}, {}, dialog.excludes());
 }
 
 void MainWindow::addSystemFolders()
@@ -803,11 +805,12 @@ void MainWindow::addSystemFolders()
     if (dialog.exec() != QDialog::Accepted)
         return;
     for (const SystemFolder &f : dialog.chosen())
-        addFolderPath(f.path, {BuiltInTypes::contentsId()}, f.name);
+        addFolderPath(f.path, Folder::Kind::Whole, {}, f.name);
 }
 
-void MainWindow::addFolderPath(const QString &path, const QStringList &typeIds, const QString &name,
-                               const QUuid &groupId, const QStringList &excludes)
+void MainWindow::addFolderPath(const QString &path, Folder::Kind kind, const QStringList &typeIds,
+                               const QString &name, const QUuid &groupId,
+                               const QStringList &excludes)
 {
     const QString clean = QDir::cleanPath(QDir::fromNativeSeparators(path));
     if (const Folder *existing = m_store->folderWithPath(clean)) {
@@ -826,7 +829,8 @@ void MainWindow::addFolderPath(const QString &path, const QStringList &typeIds, 
     f.name = name.isEmpty() ? QFileInfo(clean).fileName() : name;
     if (f.name.isEmpty())
         f.name = QDir::toNativeSeparators(clean);
-    f.typeIds = typeIds.isEmpty() ? QStringList{BuiltInTypes::contentsId()} : typeIds;
+    f.kind = kind;
+    f.typeIds = typeIds;
     f.excludes = excludes;
     const QUuid id = m_store->addFolder(f);
     selectFolder(id);
@@ -844,7 +848,7 @@ void MainWindow::editFolder(const QUuid &id)
     const Folder before = *m_store->folder(id);
     const Folder after = dialog.folder();
     m_store->updateFolder(after);
-    if (before.path != after.path || before.typeIds != after.typeIds
+    if (before.path != after.path || before.kind != after.kind || before.typeIds != after.typeIds
         || before.excludes != after.excludes)
         m_monitor->rescan(id);
 }
@@ -880,14 +884,14 @@ void MainWindow::cleanFolder(const QUuid &id)
         return;
     const ScanResult r = m_monitor->result(id);
     if (m_confirmCleaning) {
-        const QList<CleanerType> types = m_store->typesFor(*f);
-        const bool contents = std::any_of(types.cbegin(), types.cend(), [](const CleanerType &t) {
-            return t.mode == CleanerType::Mode::Contents;
-        });
-        const QString what = contents
-                                 ? tr("everything inside %1").arg(QDir::toNativeSeparators(f->path))
-                                 : tr("%n folder(s) that its types match", nullptr,
-                                      static_cast<int>(r.items.size()));
+        const QString path = QDir::toNativeSeparators(f->path);
+        const QString what =
+            f->kind == Folder::Kind::Matching
+                ? tr("%n folder(s) that its types match", nullptr, static_cast<int>(r.items.size()))
+            : f->excludes.isEmpty()
+                ? tr("everything inside %1").arg(path)
+                : tr("everything inside %1 except %2")
+                      .arg(path, ExcludeDialog::summary(f->excludes));
         QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(f->name),
                         tr("Delete %1, about %2? This cannot be undone.")
                             .arg(what, Format::bytes(r.cleanableBytes)),
