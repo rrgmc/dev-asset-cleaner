@@ -11,8 +11,11 @@ GroupModel::GroupModel(Store *store, Monitor *monitor, QObject *parent)
 {
     connect(m_store, &Store::changed, this, &GroupModel::reload);
     connect(m_monitor, &Monitor::summaryChanged, this, [this] {
-        if (!m_ids.isEmpty())
-            emit dataChanged(index(0), index(rowCount() - 1));
+        if (m_ids.isEmpty())
+            return;
+        if (m_sortOrder == SortOrder::Cleanable)
+            resort();
+        emit dataChanged(index(0), index(rowCount() - 1));
     });
     reload();
 }
@@ -87,18 +90,55 @@ int GroupModel::rowOf(const QUuid &id) const
     return static_cast<int>(m_ids.indexOf(id));
 }
 
+void GroupModel::setSortOrder(SortOrder order)
+{
+    if (order == m_sortOrder)
+        return;
+    m_sortOrder = order;
+    resort();
+}
+
 void GroupModel::reload()
 {
     QList<QUuid> ids;
     for (const Group &g : m_store->groups())
         ids.append(g.id);
     // A rename or a folder change keeps the rows, and with them the selection.
-    if (ids == m_ids) {
+    if (ids == m_manualIds) {
+        resort();
         if (!m_ids.isEmpty())
             emit dataChanged(index(0), index(rowCount() - 1));
         return;
     }
     beginResetModel();
-    m_ids = ids;
+    m_manualIds = ids;
+    m_ids = sortedIds();
     endResetModel();
+}
+
+QList<QUuid> GroupModel::sortedIds() const
+{
+    return Sorting::sorted(
+        m_manualIds, m_sortOrder,
+        [this](const QUuid &id) {
+            const Group *g = m_store->group(id);
+            return g ? g->name : QString();
+        },
+        [this](const QUuid &id) { return m_monitor->groupCleanableBytes({id}); });
+}
+
+void GroupModel::resort()
+{
+    const QList<QUuid> ids = sortedIds();
+    if (ids == m_ids)
+        return;
+    emit layoutAboutToBeChanged();
+    const QModelIndexList before = persistentIndexList();
+    QModelIndexList after;
+    after.reserve(before.size());
+    for (const QModelIndex &i : before)
+        after.append(index(static_cast<int>(ids.indexOf(m_ids.value(i.row())))));
+    m_ids = ids;
+    changePersistentIndexList(before, after);
+    emit layoutChanged();
 }
