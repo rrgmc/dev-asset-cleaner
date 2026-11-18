@@ -13,7 +13,7 @@ struct Settings
     bool closeToTray = true;       // closing the window hides it instead of quitting
     int rescanMinutes = 30;        // rescan every folder this often; 0 turns it off
     qint64 freeWarnBytes = 10LL * 1024 * 1024 * 1024;  // warn below this free space; 0 = off
-    qint64 totalWarnBytes = 0;     // warn when all folders together hold more; 0 = off
+    qint64 totalWarnBytes = 0;     // warn when more can be cleaned in all folders; 0 = off
 
     friend bool operator==(const Settings &, const Settings &) = default;
 };

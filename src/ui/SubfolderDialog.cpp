@@ -114,10 +114,9 @@ SubfolderDialog::SubfolderDialog(Store *store, Monitor *monitor, const QUuid &fo
     m_list->onActivated = [this](int row) { showItems(row); };
     m_list->onContextMenu = [this](int row, const QPoint &pos) { showContextMenu(row, pos); };
 
-    // Each entry's data is the role to sort by; sizes sort largest first.
+    // Each entry's data is the role to sort by; the space to clean sorts largest first.
     m_sort->addItem(tr("Name"), int(Qt::DisplayRole));
     m_sort->addItem(tr("Space to clean"), int(FolderModel::CleanableRole));
-    m_sort->addItem(tr("Size"), int(FolderModel::TotalRole));
     auto applySort = [this] {
         const int role = m_sort->currentData().toInt();
         m_proxy->setSortRole(role);

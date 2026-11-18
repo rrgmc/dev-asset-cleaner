@@ -67,11 +67,9 @@ QVariant SubfolderModel::data(const QModelIndex &index, int role) const
             return r.result.error;
         if (!r.result.valid)
             return tr("Not scanned");
-        return tr("%1 in the folder").arg(Format::bytes(r.result.totalBytes));
+        return QString();
     case FolderModel::CleanableRole:
         return r.result.cleanableBytes;
-    case FolderModel::TotalRole:
-        return r.result.totalBytes;
     case FolderModel::ScannedRole:
         return r.result.valid;
     case FolderModel::BusyRole:

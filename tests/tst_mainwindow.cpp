@@ -88,7 +88,19 @@ private slots:
         QTRY_VERIFY(m_monitor->result(projects).valid);
         QCOMPARE(m_monitor->result(projects).cleanableBytes, 4000);
         QTRY_COMPARE(m_monitor->cleanableBytes(), 4700);
-        QCOMPARE(m_monitor->totalBytes(), 4710);
+
+        // A folder's warning measures its space to clean (4000 bytes), not its size (4010).
+        Folder f = *m_store->folder(projects);
+        f.warnBytes = 4005;
+        m_store->updateFolder(f);
+        QTRY_VERIFY(m_monitor->result(projects).valid);
+        QVERIFY(!m_monitor->warnings().largeFolders.contains(projects));
+        f.warnBytes = 3999;
+        m_store->updateFolder(f);
+        QTRY_VERIFY(m_monitor->result(projects).valid);
+        QVERIFY(m_monitor->warnings().largeFolders.contains(projects));
+        f.warnBytes = 0;
+        m_store->updateFolder(f);
 
         // Adding the same folder again selects it instead.
         m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Whole);

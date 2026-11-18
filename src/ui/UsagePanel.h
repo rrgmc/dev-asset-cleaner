@@ -2,23 +2,17 @@
 
 #include <QWidget>
 
-// Shows in large coloured text how much the folders use and how much of it can be cleaned:
-// for every folder, and for the selected groups when they are not all of them. It sits in the
-// toolbar, right of the buttons.
+// Shows in large coloured text how much cleaning would free: in every folder, and in the
+// selected groups when they are not all of them. It sits in the toolbar, right of the buttons.
 class UsagePanel : public QWidget
 {
     Q_OBJECT
 
 public:
-    struct Usage {
-        qint64 totalBytes = 0;
-        qint64 cleanableBytes = 0;
-    };
-
     explicit UsagePanel(QWidget *parent = nullptr);
 
-    // `selection` is shown only when `showSelection` is set.
-    void setUsage(const Usage &all, const Usage &selection, bool showSelection);
+    // `selectionBytes` is shown only when `showSelection` is set.
+    void setUsage(qint64 allBytes, qint64 selectionBytes, bool showSelection);
 
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override { return sizeHint(); }
@@ -30,15 +24,14 @@ protected:
 private:
     struct Column {
         QString caption;
-        Usage usage;
-        QColor color;
+        qint64 cleanableBytes = 0;
     };
     QList<Column> columns() const;
     int columnWidth(const Column &column) const;
     QFont bigFont() const;
     QFont smallFont() const;
 
-    Usage m_all;
-    Usage m_selection;
+    qint64 m_all = 0;
+    qint64 m_selection = 0;
     bool m_showSelection = false;
 };

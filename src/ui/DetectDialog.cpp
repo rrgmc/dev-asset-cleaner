@@ -212,13 +212,10 @@ void DetectDialog::finished()
     } else if (!result.error.isEmpty()) {
         m_status->setText(result.error);
     } else if (result.detections.isEmpty()) {
-        m_status->setText(tr("The folder holds %1, but no build outputs or dependency folders "
-                             "were found in it.")
-                              .arg(Format::bytes(result.totalBytes)));
+        m_status->setText(tr("No build outputs or dependency folders were found in the folder."));
     } else {
-        m_status->setText(tr("The folder holds %1. Cleaning with every type found would free %2.")
-                              .arg(Format::bytes(result.totalBytes),
-                                   Format::bytes(result.cleanableBytes)));
+        m_status->setText(tr("Cleaning with every type found would free %1.")
+                              .arg(Format::bytes(result.cleanableBytes)));
     }
     if (isWholeFolder()) {
         m_status->setText(tr("This folder is in the list as a whole folder. A folder's kind does "

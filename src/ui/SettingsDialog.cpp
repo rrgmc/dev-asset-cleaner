@@ -31,7 +31,7 @@ SettingsDialog::SettingsDialog(const Settings &settings, bool trayAvailable, QWi
     auto *form = new QFormLayout;
     form->addRow(tr("&Rescan every:"), m_rescan);
     form->addRow(tr("Warn when &free space is below:"), m_freeWarn);
-    form->addRow(tr("Warn when all folders &hold more than:"), m_totalWarn);
+    form->addRow(tr("Warn when all folders &have more to clean than:"), m_totalWarn);
     auto *hint = new QLabel(tr("Warnings show as a badge on the tray icon. Each folder can also "
                                "have its own limit."),
                             this);

@@ -83,7 +83,7 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     excludeLabel->setBuddy(chooseExcludes);
     form->addRow(excludeLabel, excludeRow);
     form->addRow(QString(), excludeHint);
-    form->addRow(tr("&Warn above:"), m_warn);
+    form->addRow(tr("&Warn above, to clean:"), m_warn);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     m_ok = buttons->button(QDialogButtonBox::Ok);

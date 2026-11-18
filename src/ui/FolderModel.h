@@ -17,12 +17,11 @@ public:
         IdRole = Qt::UserRole + 1,
         PathRole,         // native separators
         TypesRole,        // type names, joined
-        StatusRole,       // what the right side of the row shows under the size
+        StatusRole,       // what the right side of the row shows under the space to clean
         CleanableRole,    // qint64
-        TotalRole,        // qint64
         ScannedRole,      // bool: a scan has finished
         BusyRole,         // bool: scanning or cleaning
-        WarningRole,      // bool: over its warning size, or the scan failed
+        WarningRole,      // bool: more to clean than its warning size, or the scan failed
         CanCleanRole,     // bool
         GroupRole,        // the group's name
     };
