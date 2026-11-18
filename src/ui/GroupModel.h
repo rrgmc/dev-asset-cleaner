@@ -1,13 +1,15 @@
 #pragma once
 
+#include "SortOrder.h"
+
 #include <QAbstractListModel>
 #include <QUuid>
 
 class Monitor;
 class Store;
 
-// The store's groups, in order, with the totals of their folders' last scans. The name can be
-// edited in place.
+// The store's groups, in the chosen sort order, with the totals of their folders' last scans.
+// The name can be edited in place.
 class GroupModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -30,10 +32,18 @@ public:
     QUuid idAt(int row) const;
     int rowOf(const QUuid &id) const;
 
+    SortOrder sortOrder() const { return m_sortOrder; }
+    void setSortOrder(SortOrder order);
+
 private:
     void reload();
+    // Puts the rows in the sort order, keeping the selection and the current row.
+    void resort();
+    QList<QUuid> sortedIds() const;
 
     Store *m_store;
     Monitor *m_monitor;
-    QList<QUuid> m_ids;
+    SortOrder m_sortOrder = SortOrder::Manual;
+    QList<QUuid> m_manualIds;  // the store's order
+    QList<QUuid> m_ids;        // the rows
 };

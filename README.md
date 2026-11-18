@@ -19,6 +19,10 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 - Drag a folder onto a group to move it there, or use **Move to group** in its menu. A folder
   path can be in one group only. Folders dropped from Explorer or Finder onto a group are added
   to that group.
+- **View > Sort groups by** and **View > Sort folders by** order each list by name, by the
+  space to clean (the most first), or in your own order, which **Move up** and **Move down**
+  change. The app remembers the choice. While a list is sorted by name or space, its Move
+  commands are off.
 - Each folder has a **kind**, which says what cleaning deletes (see below): everything in it,
   or only the subfolders that its **cleaner types** match. The **Add** button offers both:
   **Folder** adds a whole folder, and **Matching folders** searches a folder for the cleaner
@@ -122,8 +126,8 @@ the trash: cleaning is meant to free space, and it cannot be undone.
 | Ctrl+U | Clean the subfolders of a Matching folder one at a time |
 | Ctrl+O | Open the folder in Explorer or Finder |
 | Ctrl+C | Copy the folder's path |
-| Ctrl+Shift+Up, Ctrl+Shift+Down | Move the folder up or down |
-| Ctrl+Alt+Up, Ctrl+Alt+Down | Move the group up or down |
+| Ctrl+Shift+Up, Ctrl+Shift+Down | Move the folder up or down (manual order only) |
+| Ctrl+Alt+Up, Ctrl+Alt+Down | Move the group up or down (manual order only) |
 | Ctrl+N | Add a whole folder to the current group |
 | Ctrl+Shift+N | Add a group |
 | Ctrl+D | Add matching folders: search a folder for its cleaner types |

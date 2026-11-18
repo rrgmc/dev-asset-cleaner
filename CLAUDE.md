@@ -77,6 +77,10 @@ work in the main checkout's working tree, which stays on `master`.
   lists a folder's first-level subfolders through `SubfolderModel`, which scans and cleans each
   one on its own thread pool, and asks `Monitor` to rescan the folder after each clean. `DetectDialog` runs `Scanner::detect` in the background and returns the
   chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
+  `GroupModel` and `FolderModel` sort their own rows (`SortOrder`: manual, name, or space to
+  clean), so row numbers from `idAt` and `rowOf` stay valid; a re-sort is a layout change that
+  keeps the selection. View > Sort groups by / Sort folders by picks the order, kept in
+  QSettings beside the window geometry, and Move up and down work only in manual order.
   `UsagePanel`, in the toolbar right of the buttons, paints the space to clean in every
   folder, plus in the selected groups when they are not all of them. The UI shows only the
   space to clean, never a folder's total size; the warning limits (`Folder::warnBytes`,

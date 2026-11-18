@@ -23,6 +23,7 @@
 #include "clean/Monitor.h"
 #include "model/Store.h"
 
+#include <QActionGroup>
 #include <QApplication>
 #include <QClipboard>
 #include <QCloseEvent>
@@ -168,6 +169,11 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
 
     createActions();
     createTray();
+    {
+        QSettings settings;
+        setGroupSort(Sorting::fromId(settings.value(QStringLiteral("view/groupSort")).toString()));
+        setFolderSort(Sorting::fromId(settings.value(QStringLiteral("view/folderSort")).toString()));
+    }
     if (m_groupModel->rowCount() > 0)
         m_groups->selectId(m_groupModel->idAt(0));
     onGroupsSelected();
@@ -250,8 +256,8 @@ void MainWindow::createActions()
         m_list->selectId(id);
     });
     down->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Down));
-    m_folderActions << rescan << items << open << copy << m_moveMenu->menuAction() << edit << remove
-                    << up << down;
+    m_folderActions << rescan << items << open << copy << m_moveMenu->menuAction() << edit << remove;
+    m_folderMoveActions << up << down;
 
     QMenu *groupMenu = menuBar()->addMenu(tr("&Group"));
     QAction *newGroup = groupMenu->addAction(tr("&New group"), this, &MainWindow::addGroup);
@@ -271,7 +277,14 @@ void MainWindow::createActions()
     groupUp->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Up));
     QAction *groupDown = groupMenu->addAction(tr("Move do&wn"), this, [this] { moveGroup(1); });
     groupDown->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Down));
-    m_groupActions << renameGroup << deleteGroup << rescanAll << groupUp << groupDown;
+    m_groupActions << renameGroup << deleteGroup << rescanAll;
+    m_groupMoveActions << groupUp << groupDown;
+
+    QMenu *view = menuBar()->addMenu(tr("&View"));
+    m_groupSortActions = addSortMenu(view, tr("Sort &groups by"),
+                                     [this](SortOrder order) { setGroupSort(order); });
+    m_folderSortActions = addSortMenu(view, tr("Sort &folders by"),
+                                      [this](SortOrder order) { setFolderSort(order); });
 
     QMenu *tools = menuBar()->addMenu(tr("&Tools"));
     m_cleanEverythingAction =
@@ -624,6 +637,8 @@ void MainWindow::updateGroupActions()
     const bool hasGroup = !currentGroup().isNull();
     for (QAction *action : std::as_const(m_groupActions))
         action->setEnabled(hasGroup);
+    for (QAction *action : std::as_const(m_groupMoveActions))
+        action->setEnabled(hasGroup && m_groupModel->sortOrder() == SortOrder::Manual);
     for (QAction *action : std::as_const(m_addActions))
         action->setEnabled(hasGroup);
 }
@@ -645,6 +660,8 @@ void MainWindow::updateFolderActions()
     const bool hasFolder = !id.isNull();
     for (QAction *action : std::as_const(m_folderActions))
         action->setEnabled(hasFolder);
+    for (QAction *action : std::as_const(m_folderMoveActions))
+        action->setEnabled(hasFolder && m_model->sortOrder() == SortOrder::Manual);
     const ScanResult r = m_monitor->result(id);
     m_cleanAction->setEnabled(hasFolder && m_monitor->state(id) == Monitor::State::Idle
                               && r.valid && r.cleanableBytes > 0);
@@ -1040,6 +1057,40 @@ void MainWindow::removeGroups()
         return;
     for (const QUuid &id : ids)
         m_store->removeGroup(id);
+}
+
+QActionGroup *MainWindow::addSortMenu(QMenu *parent, const QString &title,
+                                      const std::function<void(SortOrder)> &apply)
+{
+    QMenu *menu = parent->addMenu(title);
+    auto *group = new QActionGroup(menu);
+    for (SortOrder order : Sorting::all()) {
+        QAction *a = menu->addAction(Sorting::label(order), this, [apply, order] { apply(order); });
+        a->setCheckable(true);
+        a->setData(Sorting::id(order));
+        group->addAction(a);
+    }
+    return group;
+}
+
+void MainWindow::setGroupSort(SortOrder order)
+{
+    m_groupModel->setSortOrder(order);
+    for (QAction *a : m_groupSortActions->actions())
+        a->setChecked(a->data().toString() == Sorting::id(order));
+    QSettings().setValue(QStringLiteral("view/groupSort"), Sorting::id(order));
+    updateGroupActions();
+}
+
+void MainWindow::setFolderSort(SortOrder order)
+{
+    const QUuid id = currentId();
+    m_model->setSortOrder(order);
+    m_list->selectId(id);
+    for (QAction *a : m_folderSortActions->actions())
+        a->setChecked(a->data().toString() == Sorting::id(order));
+    QSettings().setValue(QStringLiteral("view/folderSort"), Sorting::id(order));
+    updateFolderActions();
 }
 
 void MainWindow::moveGroup(int delta)

@@ -1,13 +1,16 @@
 #pragma once
 
+#include "SortOrder.h"
+
 #include <QAbstractListModel>
 #include <QUuid>
 
 class Monitor;
 class Store;
 
-// The folders of the chosen groups, group by group, with their last scan. A filter keeps the
-// folders whose name or path contains its text.
+// The folders of the chosen groups, with their last scan. In manual order they come group by
+// group; the other orders mix the groups. A filter keeps the folders whose name or path
+// contains its text.
 class FolderModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -41,12 +44,20 @@ public:
     QUuid idAt(int row) const;
     int rowOf(const QUuid &id) const;
 
+    SortOrder sortOrder() const { return m_sortOrder; }
+    void setSortOrder(SortOrder order);
+
 private:
     void reload();
+    // Puts the rows in the sort order, keeping the selection and the current row.
+    void resort();
+    QList<QUuid> sortedIds() const;
 
     Store *m_store;
     Monitor *m_monitor;
     QString m_filter;
     QList<QUuid> m_groupIds;
-    QList<QUuid> m_ids;
+    SortOrder m_sortOrder = SortOrder::Manual;
+    QList<QUuid> m_manualIds;  // the store's order
+    QList<QUuid> m_ids;        // the rows
 };

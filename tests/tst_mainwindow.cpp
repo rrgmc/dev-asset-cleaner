@@ -13,6 +13,7 @@
 #include "ui/SubfolderModel.h"
 #include "ui/SystemFoldersDialog.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -21,6 +22,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
+#include <QSettings>
 #include <QTemporaryDir>
 #include <QTreeWidget>
 #include <QTest>
@@ -45,6 +47,12 @@ private slots:
     {
         // Keep QSettings (window geometry) away from the real application's.
         QCoreApplication::setOrganizationName(QStringLiteral("dev-asset-cleaner-tests"));
+        QSettings().remove(QStringLiteral("view"));
+    }
+
+    void cleanupTestCase()
+    {
+        QSettings().remove(QStringLiteral("view"));
     }
 
     void init()
@@ -71,6 +79,10 @@ private slots:
 
     void cleanup()
     {
+        if (m_window) {
+            m_window->setGroupSort(SortOrder::Manual);
+            m_window->setFolderSort(SortOrder::Manual);
+        }
         m_window.reset();
         m_monitor.reset();
         m_store.reset();
@@ -247,6 +259,98 @@ private slots:
         QVERIFY(m_store->folders().isEmpty());
     }
 
+    void groupsSort()
+    {
+        const QUuid first = m_store->groups().first().id;  // "Default"
+        const QUuid ten = m_store->addGroup(QStringLiteral("group 10"));
+        const QUuid nine = m_store->addGroup(QStringLiteral("Group 9"));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole, {}, {}, nine);
+        QTRY_COMPARE(m_monitor->cleanableBytes(), 700);
+        m_groups->selectId(ten);
+
+        const auto rows = [this] {
+            QList<QUuid> ids;
+            for (int row = 0; row < m_groups->model()->rowCount(); ++row)
+                ids.append(m_groups->model()->index(row, 0).data(GroupModel::IdRole).toUuid());
+            return ids;
+        };
+        QAction *moveUp = findAction(QStringLiteral("Move &up"), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Up));
+        QVERIFY(moveUp);
+        QCOMPARE(rows(), (QList<QUuid>{first, ten, nine}));
+        QVERIFY(moveUp->isEnabled());
+
+        // By name, ignoring case, with numbers in numeric order. The selection stays.
+        m_window->setGroupSort(SortOrder::Name);
+        QCOMPARE(rows(), (QList<QUuid>{first, nine, ten}));
+        QCOMPARE(m_groups->selectedIds(), QList<QUuid>{ten});
+        QVERIFY(!moveUp->isEnabled());
+
+        // A rename moves the group.
+        m_store->renameGroup(first, QStringLiteral("Zeta"));
+        QCOMPARE(rows(), (QList<QUuid>{nine, ten, first}));
+        QCOMPARE(m_groups->selectedIds(), QList<QUuid>{ten});
+
+        // By space to clean, the most first; ties keep the manual order.
+        m_window->setGroupSort(SortOrder::Cleanable);
+        QCOMPARE(rows(), (QList<QUuid>{nine, first, ten}));
+
+        m_window->setGroupSort(SortOrder::Manual);
+        QCOMPARE(rows(), (QList<QUuid>{first, ten, nine}));
+        QVERIFY(moveUp->isEnabled());
+    }
+
+    void foldersSort()
+    {
+        writeFile(m_dir->filePath(QStringLiteral("other/blob")), 9000);
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole, {},
+                                QStringLiteral("item 10"));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching,
+                                {QStringLiteral("rust")}, QStringLiteral("Item 9"));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("other")), Folder::Kind::Whole, {},
+                                QStringLiteral("Item 11"));
+        QTRY_COMPARE(m_monitor->cleanableBytes(), 13700);
+        QTRY_VERIFY(!m_monitor->isBusy());
+
+        const auto names = [this] {
+            QStringList list;
+            for (int row = 0; row < m_list->model()->rowCount(); ++row)
+                list.append(m_list->model()->index(row, 0).data().toString());
+            return list;
+        };
+        QCOMPARE(names(), (QStringList{"item 10", "Item 9", "Item 11"}));
+        const QUuid selected = m_store->folders().at(1).id;
+        m_list->selectId(selected);
+
+        m_window->setFolderSort(SortOrder::Name);
+        QCOMPARE(names(), (QStringList{"Item 9", "item 10", "Item 11"}));
+        QCOMPARE(m_list->currentId(), selected);
+        QAction *moveUp = findAction(QStringLiteral("Move &up"), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Up));
+        QVERIFY(moveUp);
+        QVERIFY(!moveUp->isEnabled());
+
+        m_window->setFolderSort(SortOrder::Cleanable);
+        QCOMPARE(names(), (QStringList{"Item 11", "Item 9", "item 10"}));
+        QCOMPARE(m_list->currentId(), selected);
+
+        // A clean changes the space to clean, and the folder moves.
+        m_monitor->clean(m_store->folders().at(2).id);
+        QTRY_COMPARE(names(), (QStringList{"Item 9", "item 10", "Item 11"}));
+        QTRY_VERIFY(!m_monitor->isBusy());
+        QCOMPARE(m_list->currentId(), selected);
+
+        // The choice is remembered by the next window.
+        m_window.reset();
+        m_window = std::make_unique<MainWindow>(m_store.get(), m_monitor.get());
+        m_list = m_window->findChild<FolderListView *>();
+        m_groups = m_window->findChild<GroupListView *>();
+        QCOMPARE(names(), (QStringList{"Item 9", "item 10", "Item 11"}));
+        m_window->setFolderSort(SortOrder::Manual);
+        QCOMPARE(names(), (QStringList{"item 10", "Item 9", "Item 11"}));
+        QVERIFY(moveUp = findAction(QStringLiteral("Move &up"), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Up)));
+        m_list->selectId(selected);
+        QVERIFY(moveUp->isEnabled());
+    }
+
     void filterHidesOtherFolders()
     {
         m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching, {QStringLiteral("rust")});
@@ -372,6 +476,16 @@ private slots:
     }
 
 private:
+    // The window's menu action with this text and shortcut.
+    QAction *findAction(const QString &text, const QKeySequence &shortcut) const
+    {
+        for (QAction *a : m_window->findChildren<QAction *>()) {
+            if (a->text() == text && a->shortcut() == shortcut)
+                return a;
+        }
+        return nullptr;
+    }
+
     std::unique_ptr<QTemporaryDir> m_dir;
     std::unique_ptr<Store> m_store;
     std::unique_ptr<Monitor> m_monitor;
