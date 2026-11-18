@@ -350,6 +350,13 @@ private:
             p->drawLine(QPointF(9.3, 7), QPointF(9.1, 12));
             break;
         }
+        case QIcon::ThemeIcon::DriveHarddisk: {
+            // A disk drive with a light and a slot, for free space.
+            p->drawRoundedRect(QRectF(1.5, 4.5, 13, 7), 1.5, 1.5);
+            p->drawLine(QPointF(4, 8), QPointF(9, 8));
+            p->drawEllipse(QPointF(12, 8), 0.6, 0.6);
+            break;
+        }
         default:
             break;
         }

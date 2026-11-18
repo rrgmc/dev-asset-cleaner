@@ -6,6 +6,7 @@
 #include "ui/FolderDialog.h"
 #include "ui/FolderListView.h"
 #include "ui/FolderModel.h"
+#include "ui/FreeSpaceDialog.h"
 #include "ui/GroupListView.h"
 #include "ui/GroupModel.h"
 #include "ui/MainWindow.h"
@@ -18,6 +19,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
+#include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
@@ -369,6 +371,34 @@ private slots:
         auto *buttons = dialog.findChild<QDialogButtonBox *>();
         QVERIFY(buttons);
         QVERIFY(!buttons->button(QDialogButtonBox::Ok)->isEnabled());
+    }
+
+    void lowDisksShowInTheStatusBar()
+    {
+        auto *low = m_window->findChild<QLabel *>(QStringLiteral("lowSpace"));
+        QVERIFY(low);
+        Volume big{QStringLiteral("/big"), QStringLiteral("Big"), 500LL * 1000 * 1000 * 1000,
+                   1000LL * 1000 * 1000 * 1000};
+        Volume small{QStringLiteral("/small"), QStringLiteral("Small"), 1000 * 1000,
+                     100LL * 1000 * 1000 * 1000};
+        m_monitor->setVolumesForDisplay({big});
+        QVERIFY(low->isHidden());
+
+        m_monitor->setVolumesForDisplay({big, small});
+        QVERIFY(!low->isHidden());
+        QVERIFY(low->text().contains(QStringLiteral("Small")));
+        QVERIFY(!low->text().contains(QStringLiteral("Big")));
+
+        // The dialog lists every disk and follows the monitor.
+        FreeSpaceDialog dialog(m_store.get(), m_monitor.get());
+        auto *tree = dialog.findChild<QTreeWidget *>();
+        QVERIFY(tree);
+        QCOMPARE(tree->topLevelItemCount(), 2);
+        QVERIFY(tree->topLevelItem(1)->text(0).contains(QStringLiteral("Small")));
+        QVERIFY(tree->topLevelItem(0)->foreground(0) != tree->topLevelItem(1)->foreground(0));
+        m_monitor->setVolumesForDisplay({big});
+        QCOMPARE(tree->topLevelItemCount(), 1);
+        QVERIFY(low->isHidden());
     }
 
 private:

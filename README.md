@@ -36,6 +36,8 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
   as `~/Library/Caches` are left out, since running programs use them. Reading the macOS Trash
   needs Full Disk Access.
 - Folders are scanned in the background when added, and again every 30 minutes.
+- The **Free space** button lists the free space on each disk that holds a monitored folder.
+  The status bar shows only the disks below the free space limit in Settings, in orange.
 - Closing the window keeps the app in the system tray (the menu bar on macOS, where it also
   leaves the Dock until the window shows again). The tray menu and the tooltip show what
   cleaning each folder would free and the free space on their disks. With several groups, the tray menu has a
