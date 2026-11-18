@@ -193,6 +193,7 @@ preset for the current platform. Run `task --list` to see them all.
 ```sh
 task test         # download Qt if needed, configure, build and test
 task run          # start the app with a scratch data file in the build folder
+task run-prod     # start the app with your real data file
 task install      # copy the app and the Qt libraries into dist/
 task package      # make the Windows setup or the macOS disk image
 task icons        # regenerate the icon files

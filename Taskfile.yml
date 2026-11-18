@@ -59,6 +59,13 @@ tasks:
     cmds:
       - '"{{.APP}}"'
 
+  run-prod:
+    desc: Build and start dev-asset-cleaner with your real data file (only shows the app if it already runs)
+    deps: [build]
+    cmds:
+      # Unset, so that a DAC_DATA_FILE from the shell does not pick another file.
+      - unset DAC_DATA_FILE; "{{.APP}}"
+
   install:
     desc: Copy the app and its Qt runtime into dist/
     deps: [build]
