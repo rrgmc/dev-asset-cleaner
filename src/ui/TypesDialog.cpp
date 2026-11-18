@@ -104,6 +104,8 @@ TypesDialog::TypesDialog(const QList<CleanerType> &customTypes, QWidget *parent)
     m_readOnly->setWordWrap(true);
 
     auto *form = new QFormLayout;
+    // macOS keeps fields at their size hint by default, which leaves the text fields narrow.
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     form->addRow(tr("&Name:"), m_name);
     form->addRow(tr("D&escription:"), m_description);
     form->addRow(tr("&Cleans:"), m_mode);

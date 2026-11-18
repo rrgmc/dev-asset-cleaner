@@ -70,18 +70,22 @@ keep fixes to those parts in step with it.
 - `docs/screenshot-macos.png` is drawn with made-up data by the `make_screenshot` target,
   through `Monitor::setResultForDisplay` and `setVolumesForDisplay`. On macOS the tool captures
   the real window with `screencapture`, which needs the Screen Recording permission.
-- `CMakeLists.txt` drops the AGL framework from Qt's OpenGL target on macOS (Xcode 26 no
-  longer ships it). Remove the workaround when moving to a Qt version that no longer links AGL.
-- Qt 6.8 crashes on macOS 27 in two places, worked around as in favdir. `TrayIcon` uses a
-  native `NSStatusItem` instead of `QSystemTrayIcon`; its menu is rebuilt from the `QMenu`
-  each time it opens. `Icons::toolIcon` draws the toolbar icons instead of using
-  `QIcon::fromTheme`. Check both after upgrading Qt.
+- Qt 6.8 crashed on macOS 27 in two places, worked around as in favdir and kept with Qt 6.10.
+  `TrayIcon` uses a native `NSStatusItem` instead of `QSystemTrayIcon` (fixed in Qt 6.12); its
+  menu is rebuilt from the `QMenu` each time it opens. `Icons::toolIcon` draws the toolbar
+  icons instead of using `QIcon::fromTheme` (not yet checked with Qt 6.10). Check both after
+  upgrading Qt.
 - On macOS, hiding the window to the menu bar makes the app an accessory app (no Dock icon)
   and showing it makes it a regular app again, through `TrayIcon::setDockIconVisible`.
 - "Start when I sign in" lives in the OS, not in the JSON file: the per-user Run key on
   Windows (the same value the installer writes) and `SMAppService.mainApp` on macOS
   (`LoginItem`).
-- Qt 6.8's macOS style draws no check boxes in item views on macOS 27. `ItemCheckStyle::apply`
+- Dialogs run with `exec()` sit at AppKit's modal panel level, above other apps and the
+  Screenshot controls, and Qt (6.8 to 6.10) leaves them there. `MacApp::attachModalDialogs`
+  keeps each modal dialog at the normal level and attaches it to its owner window as a child
+  window, as Mirante does, so it stays directly above that window.
+- Qt 6.8's macOS style drew no check boxes in item views on macOS 27 (not yet checked with Qt
+  6.10). `ItemCheckStyle::apply`
   gives a view a style that paints them in code; use it on every view with checkable items.
 
 ## Packaging and releases
