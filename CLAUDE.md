@@ -63,6 +63,8 @@ work in the main checkout's working tree, which stays on `master`.
   so that a Move drop never removes model rows. "Clean all" and "Rescan all" act on the
   selected groups; Tools has the commands for every group. `DetectDialog` runs `Scanner::detect` in the background and returns the
   chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
+  `UsagePanel`, in the toolbar right of the buttons, paints the used and cleanable space of
+  every folder, plus the selected groups' when they are not all of them.
 - `src/platform`: `SingleInstance`.
 - Libraries: `dac_core` (model and cleaning) and `dac_ui` (widgets), so tests can link them.
   `main.cpp` and `src/platform` belong only to the `dev-asset-cleaner` executable.

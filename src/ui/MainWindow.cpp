@@ -14,6 +14,7 @@
 #include "LoginItem.h"
 #include "SettingsDialog.h"
 #include "TrayIcon.h"
+#include "UsagePanel.h"
 #include "TypesDialog.h"
 #include "clean/KnownCaches.h"
 #include "clean/Monitor.h"
@@ -330,6 +331,9 @@ void MainWindow::createActions()
     toolbar->addSeparator();
     addButton(types, tr("Cleaner types"));
     addButton(settings, tr("Settings"));
+    toolbar->addSeparator();
+    m_usage = new UsagePanel(toolbar);
+    toolbar->addWidget(m_usage);
 
     // Tooltips name the command and its shortcut.
     for (QAction *action : toolbar->actions()) {
@@ -422,6 +426,12 @@ void MainWindow::updateSummary()
     if (!free.isEmpty())
         text += QStringLiteral("   ·   ") + free.join(QStringLiteral(", "));
     m_summary->setText(text);
+    if (m_usage) {
+        // The selection is worth its own column only when it is not every group.
+        const bool partial = !groups.isEmpty() && groups.size() < m_store->groups().size();
+        m_usage->setUsage({m_monitor->totalBytes(), m_monitor->cleanableBytes()},
+                          {m_monitor->groupTotalBytes(groups), groupCleanable}, partial);
+    }
     m_cleanAllAction->setEnabled(groupCleanable > 0);
     m_cleanEverythingAction->setEnabled(m_monitor->cleanableBytes() > 0);
 
