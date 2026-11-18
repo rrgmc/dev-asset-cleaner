@@ -349,7 +349,9 @@ void MainWindow::createActions()
     // The usage panel sets the toolbar's height, which stretches the buttons. Bigger icons and
     // a matching width keep them square.
     const int side = m_usage->sizeHint().height();
-    toolbar->setIconSize(QSize(qMax(16, side / 2), qMax(16, side / 2)));
+    // Windows draws its theme icons in steps of 4 px (16, 20, 24); in between they draw smaller.
+    const int icon = qMax(16, (side / 2 - 2) / 4 * 4);
+    toolbar->setIconSize(QSize(icon, icon));
     for (QAction *action : toolbar->actions()) {
         if (auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(action)))
             button->setMinimumWidth(side);
