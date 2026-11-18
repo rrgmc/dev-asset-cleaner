@@ -37,22 +37,19 @@ QVariant GroupModel::data(const QModelIndex &index, int role) const
         return g->name;
     case Qt::ToolTipRole: {
         const QList<Folder> folders = m_store->foldersIn({id});
-        return tr("%n folder(s), %1, %2 to clean", nullptr, static_cast<int>(folders.size()))
-            .arg(Format::bytes(m_monitor->groupTotalBytes({id})),
-                 Format::bytes(m_monitor->groupCleanableBytes({id})));
+        return tr("%n folder(s), %1 to clean", nullptr, static_cast<int>(folders.size()))
+            .arg(Format::bytes(m_monitor->groupCleanableBytes({id})));
     }
     case IdRole:
         return id;
     case CountRole:
         return static_cast<int>(m_store->foldersIn({id}).size());
-    case TotalRole:
-        return m_monitor->groupTotalBytes({id});
     case CleanableRole:
         return m_monitor->groupCleanableBytes({id});
     case WarningRole:
         for (const Folder &f : m_store->foldersIn({id})) {
             const ScanResult r = m_monitor->result(f.id);
-            if (!r.error.isEmpty() || (f.warnBytes > 0 && r.totalBytes > f.warnBytes))
+            if (!r.error.isEmpty() || (f.warnBytes > 0 && r.cleanableBytes > f.warnBytes))
                 return true;
         }
         return false;

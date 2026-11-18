@@ -193,27 +193,11 @@ void Monitor::finish(const QUuid &id, int generation, const ScanResult &result,
     updateVolumes();
 }
 
-qint64 Monitor::totalBytes() const
-{
-    qint64 total = 0;
-    for (const Folder &f : m_store->folders())
-        total += result(f.id).totalBytes;
-    return total;
-}
-
 qint64 Monitor::cleanableBytes() const
 {
     qint64 total = 0;
     for (const Folder &f : m_store->folders())
         total += result(f.id).cleanableBytes;
-    return total;
-}
-
-qint64 Monitor::groupTotalBytes(const QList<QUuid> &groupIds) const
-{
-    qint64 total = 0;
-    for (const Folder &f : m_store->foldersIn(groupIds))
-        total += result(f.id).totalBytes;
     return total;
 }
 
@@ -238,11 +222,11 @@ Warnings Monitor::warnings() const
             w.lowVolumes.append(v);
     }
     for (const Folder &f : m_store->folders()) {
-        if (f.warnBytes > 0 && result(f.id).totalBytes > f.warnBytes)
+        if (f.warnBytes > 0 && result(f.id).cleanableBytes > f.warnBytes)
             w.largeFolders.append(f.id);
     }
     const qint64 limit = m_store->settings().totalWarnBytes;
-    w.totalTooLarge = limit > 0 && totalBytes() > limit;
+    w.totalTooLarge = limit > 0 && cleanableBytes() > limit;
     return w;
 }
 

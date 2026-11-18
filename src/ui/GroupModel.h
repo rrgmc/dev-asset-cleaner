@@ -16,9 +16,8 @@ public:
     enum Role {
         IdRole = Qt::UserRole + 1,
         CountRole,      // int: folders in the group
-        TotalRole,      // qint64
         CleanableRole,  // qint64
-        WarningRole,    // bool: a folder is over its warning size, or its scan failed
+        WarningRole,    // bool: a folder has more to clean than its warning size, or its scan failed
     };
 
     GroupModel(Store *store, Monitor *monitor, QObject *parent = nullptr);

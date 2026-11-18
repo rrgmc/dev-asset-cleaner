@@ -77,8 +77,10 @@ work in the main checkout's working tree, which stays on `master`.
   lists a folder's first-level subfolders through `SubfolderModel`, which scans and cleans each
   one on its own thread pool, and asks `Monitor` to rescan the folder after each clean. `DetectDialog` runs `Scanner::detect` in the background and returns the
   chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
-  `UsagePanel`, in the toolbar right of the buttons, paints the used and cleanable space of
-  every folder, plus the selected groups' when they are not all of them.
+  `UsagePanel`, in the toolbar right of the buttons, paints the space to clean in every
+  folder, plus in the selected groups when they are not all of them. The UI shows only the
+  space to clean, never a folder's total size; the warning limits (`Folder::warnBytes`,
+  `Settings::totalWarnBytes`) also measure the space to clean.
 - `src/platform`: `SingleInstance`.
 - Libraries: `dac_core` (model and cleaning) and `dac_ui` (widgets), so tests can link them.
   `main.cpp` and `src/platform` belong only to the `dev-asset-cleaner` executable.

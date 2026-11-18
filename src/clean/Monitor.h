@@ -29,8 +29,8 @@ struct Volume
 struct Warnings
 {
     QList<Volume> lowVolumes;
-    QList<QUuid> largeFolders;  // over their own warning size
-    bool totalTooLarge = false;
+    QList<QUuid> largeFolders;  // more to clean than their own warning size
+    bool totalTooLarge = false;  // more to clean in all folders than the settings' limit
 
     bool any() const { return !lowVolumes.isEmpty() || !largeFolders.isEmpty() || totalTooLarge; }
 };
@@ -63,11 +63,9 @@ public:
     // Asks running work to stop and waits for it.
     void cancelAll();
 
-    // Totals over every folder's last scan.
-    qint64 totalBytes() const;
+    // What cleaning would free, over every folder's last scan.
     qint64 cleanableBytes() const;
-    // Totals over the folders of these groups.
-    qint64 groupTotalBytes(const QList<QUuid> &groupIds) const;
+    // The same over the folders of these groups.
     qint64 groupCleanableBytes(const QList<QUuid> &groupIds) const;
 
     QList<Volume> volumes() const;

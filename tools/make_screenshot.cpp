@@ -56,7 +56,7 @@ void fill(Store &store, Monitor &monitor)
 {
     const QList<Sample> samples = {
         {QStringLiteral("Projects"), QStringLiteral("Projects"), {QStringLiteral("all-languages")},
-         84 * GB, 37'400 * MB, 60 * GB},
+         84 * GB, 37'400 * MB, 30 * GB},
         {QStringLiteral("Rust experiments"), QStringLiteral("src/rust"), {QStringLiteral("rust")},
          21'300 * MB, 19'800 * MB},
         {QStringLiteral("Go module cache"), QStringLiteral("go/pkg/mod"), {}, 6'200 * MB,

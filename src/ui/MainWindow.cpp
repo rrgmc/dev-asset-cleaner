@@ -444,14 +444,10 @@ void MainWindow::updateSummary()
     const qint64 groupCleanable = m_monitor->groupCleanableBytes(groups);
     QString text;
     if (m_store->groups().size() > 1 && !groups.isEmpty()) {
-        text = tr("Selected: %1, %2 to clean   ·   All: %3, %4 to clean")
-                   .arg(Format::bytes(m_monitor->groupTotalBytes(groups)),
-                        Format::bytes(groupCleanable), Format::bytes(m_monitor->totalBytes()),
-                        Format::bytes(m_monitor->cleanableBytes()));
+        text = tr("Selected: %1 to clean   ·   All: %2 to clean")
+                   .arg(Format::bytes(groupCleanable), Format::bytes(m_monitor->cleanableBytes()));
     } else {
-        text = tr("Folders: %1, %2 to clean")
-                   .arg(Format::bytes(m_monitor->totalBytes()),
-                        Format::bytes(m_monitor->cleanableBytes()));
+        text = tr("Folders: %1 to clean").arg(Format::bytes(m_monitor->cleanableBytes()));
     }
     if (!free.isEmpty())
         text += QStringLiteral("   ·   ") + free.join(QStringLiteral(", "));
@@ -460,8 +456,7 @@ void MainWindow::updateSummary()
     if (m_usage) {
         // The selection is worth its own column only when it is not every group.
         const bool partial = !groups.isEmpty() && groups.size() < m_store->groups().size();
-        m_usage->setUsage({m_monitor->totalBytes(), m_monitor->cleanableBytes()},
-                          {m_monitor->groupTotalBytes(groups), groupCleanable}, partial);
+        m_usage->setUsage(m_monitor->cleanableBytes(), groupCleanable, partial);
     }
     m_cleanAllAction->setEnabled(groupCleanable > 0);
     m_cleanEverythingAction->setEnabled(m_monitor->cleanableBytes() > 0);
@@ -498,9 +493,7 @@ void MainWindow::updateTray()
         QMenu *menu = m_trayMenu->addMenu(
             QStringLiteral("%1%2: %3").arg(
                 large ? warningMark() : QString(), g.name,
-                tr("%1, %2 to clean")
-                    .arg(Format::bytes(m_monitor->groupTotalBytes({g.id})),
-                         Format::bytes(m_monitor->groupCleanableBytes({g.id})))));
+                tr("%1 to clean").arg(Format::bytes(m_monitor->groupCleanableBytes({g.id})))));
         groupMenus.insert(g.id, menu);
     }
     QList<QUuid> allGroups;
@@ -523,8 +516,7 @@ void MainWindow::updateTray()
             else if (!r.valid)
                 detail = tr("not scanned");
             else
-                detail = tr("%1, %2 to clean")
-                             .arg(Format::bytes(r.totalBytes), Format::bytes(r.cleanableBytes));
+                detail = tr("%1 to clean").arg(Format::bytes(r.cleanableBytes));
             break;
         }
         const QUuid id = f.id;
@@ -543,9 +535,7 @@ void MainWindow::updateTray()
     if (!m_store->folders().isEmpty() || submenus)
         m_trayMenu->addSeparator();
     QStringList tipLines{AppInfo::displayName()};
-    tipLines.append(tr("Folders: %1, %2 to clean")
-                        .arg(Format::bytes(m_monitor->totalBytes()),
-                             Format::bytes(m_monitor->cleanableBytes())));
+    tipLines.append(tr("Folders: %1 to clean").arg(Format::bytes(m_monitor->cleanableBytes())));
     for (const Volume &v : m_monitor->volumes()) {
         const QString line = tr("%1%2 free of %3 on %4")
                                  .arg(v.low ? warningMark() : QString(), Format::bytes(v.freeBytes),
@@ -554,11 +544,11 @@ void MainWindow::updateTray()
         tipLines.append(line);
     }
     if (warnings.totalTooLarge)
-        tipLines.append(warningMark() + tr("The folders hold more than %1.")
+        tipLines.append(warningMark() + tr("The folders have more than %1 to clean.")
                                             .arg(Format::bytes(m_store->settings().totalWarnBytes)));
     for (const QUuid &id : warnings.largeFolders) {
         if (const Folder *f = m_store->folder(id))
-            tipLines.append(warningMark() + tr("%1 holds more than %2.")
+            tipLines.append(warningMark() + tr("%1 has more than %2 to clean.")
                                                 .arg(f->name, Format::bytes(f->warnBytes)));
     }
     m_trayMenu->addSeparator();

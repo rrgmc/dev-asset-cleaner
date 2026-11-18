@@ -25,7 +25,7 @@ struct Folder
     QString name;
     QString path;          // with '/' separators
     QStringList typeIds;   // cleaner types of a Matching folder; a Whole folder has none
-    qint64 warnBytes = 0;  // warn when the folder holds more than this; 0 turns it off
+    qint64 warnBytes = 0;  // warn when more than this can be cleaned; 0 turns it off
     QUuid groupId;         // not in the folder's JSON: the file nests folders in their group
     QStringList excludes;  // names of first-level subfolders that cleaning never touches
     Kind kind = Kind::Matching;

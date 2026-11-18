@@ -69,17 +69,15 @@ QVariant FolderModel::data(const QModelIndex &index, int role) const
             return result.error;
         if (!result.valid)
             return tr("Not scanned");
-        return tr("%1 in the folder").arg(Format::bytes(result.totalBytes));
+        return QString();
     case CleanableRole:
         return result.cleanableBytes;
-    case TotalRole:
-        return result.totalBytes;
     case ScannedRole:
         return result.valid;
     case BusyRole:
         return state != Monitor::State::Idle;
     case WarningRole:
-        return !result.error.isEmpty() || (f->warnBytes > 0 && result.totalBytes > f->warnBytes);
+        return !result.error.isEmpty() || (f->warnBytes > 0 && result.cleanableBytes > f->warnBytes);
     case CanCleanRole:
         return state == Monitor::State::Idle && result.valid && result.cleanableBytes > 0;
     default:
