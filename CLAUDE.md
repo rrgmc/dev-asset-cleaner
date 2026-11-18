@@ -36,7 +36,9 @@ keep fixes to those parts in step with it.
 - `src/clean`: `Scanner` (walks a folder, finds what its types match, deletes it; `detect`
   reports per type what each rule-based type would delete, for `DetectDialog`),
   `Monitor` (runs scans and cleans on a thread pool, keeps results, free space and warnings),
-  `KnownCaches` (tool caches offered in the Add menu).
+  `KnownCaches` (tool caches offered in the Add menu), `SystemFolders` (the OS's trash and
+  cache folders that are safe to empty, offered by `SystemFoldersDialog`; keep browser caches
+  and broad folders such as `~/Library/Caches` out of it).
 - `src/ui`: widgets. `MainWindow` holds one `FolderListView` over a `FolderModel`, painted by
   `FolderDelegate`. `DetectDialog` runs `Scanner::detect` in the background and returns the
   chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.

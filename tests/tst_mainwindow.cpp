@@ -5,8 +5,10 @@
 #include "ui/FolderListView.h"
 #include "ui/FolderModel.h"
 #include "ui/MainWindow.h"
+#include "ui/SystemFoldersDialog.h"
 
 #include <QApplication>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QLineEdit>
@@ -145,6 +147,29 @@ private slots:
         rust.first()->setCheckState(0, Qt::Unchecked);
         QCOMPARE(dialog.typeIds(), QStringList{QStringLiteral("node")});
         QCOMPARE(dialog.path(), QDir::cleanPath(m_dir->filePath(QStringLiteral("projects"))));
+    }
+
+    void systemFoldersDialogSkipsListedFolders()
+    {
+        const QString cache = QDir::cleanPath(m_dir->filePath(QStringLiteral("cache")));
+        const QString trash = QDir::cleanPath(m_dir->filePath(QStringLiteral("trash")));
+        QVERIFY(QDir().mkpath(trash));
+        m_window->addFolderPath(cache);
+        const QList<SystemFolder> folders{{QStringLiteral("Cache"), cache, QStringLiteral("c")},
+                                          {QStringLiteral("Trash"), trash, QStringLiteral("t")}};
+        SystemFoldersDialog dialog(m_store.get(), folders);
+        auto *tree = dialog.findChild<QTreeWidget *>();
+        QVERIFY(tree);
+        QCOMPARE(tree->topLevelItemCount(), 2);
+        // The folder already in the list cannot be picked.
+        QVERIFY(!(tree->topLevelItem(0)->flags() & Qt::ItemIsEnabled));
+        QCOMPARE(dialog.chosen().size(), 1);
+        QCOMPARE(dialog.chosen().first().path, trash);
+        tree->topLevelItem(1)->setCheckState(0, Qt::Unchecked);
+        QVERIFY(dialog.chosen().isEmpty());
+        auto *buttons = dialog.findChild<QDialogButtonBox *>();
+        QVERIFY(buttons);
+        QVERIFY(!buttons->button(QDialogButtonBox::Ok)->isEnabled());
     }
 
 private:

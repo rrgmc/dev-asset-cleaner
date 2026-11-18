@@ -16,6 +16,12 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
   existing folder switches to them.
 - The **Add** button also offers the tool caches it finds on this computer, such as the Go
   module cache, the npm cache, Gradle's caches and Xcode's derived data.
+- **Add system folders** lists the operating system's trash and cache folders that are safe to
+  empty: the Recycle Bin of each drive, Windows error reports, crash dumps and graphics shader
+  caches on Windows; the Trash, the trash of other volumes and crash reports on macOS; the
+  freedesktop.org trash and thumbnails elsewhere. Browser caches and broad cache folders such
+  as `~/Library/Caches` are left out, since running programs use them. Reading the macOS Trash
+  needs Full Disk Access.
 - Folders are scanned in the background when added, and again every 30 minutes.
 - Closing the window keeps the app in the system tray (the menu bar on macOS, where it also
   leaves the Dock until the window shows again). The tray menu and the tooltip show the space

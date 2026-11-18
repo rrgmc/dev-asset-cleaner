@@ -39,9 +39,14 @@ qt_add_library(dac_core STATIC
     src/clean/KnownCaches.h src/clean/KnownCaches.cpp
     src/clean/Monitor.h src/clean/Monitor.cpp
     src/clean/Scanner.h src/clean/Scanner.cpp
+    src/clean/SystemFolders.h src/clean/SystemFolders.cpp
 )
 target_include_directories(dac_core PUBLIC src)
 target_link_libraries(dac_core PUBLIC Qt6::Gui Qt6::Concurrent)
+if(WIN32)
+    # SystemFolders reads the user's security identifier for the Recycle Bin folders.
+    target_link_libraries(dac_core PRIVATE advapi32)
+endif()
 
 # Widgets, shared by the app and the GUI test.
 qt_add_library(dac_ui STATIC
@@ -59,6 +64,7 @@ qt_add_library(dac_ui STATIC
     src/ui/MainWindow.h src/ui/MainWindow.cpp
     src/ui/SettingsDialog.h src/ui/SettingsDialog.cpp
     src/ui/SizeSpinBox.h
+    src/ui/SystemFoldersDialog.h src/ui/SystemFoldersDialog.cpp
     src/ui/TrayIcon.h
     src/ui/TypesDialog.h src/ui/TypesDialog.cpp
 )

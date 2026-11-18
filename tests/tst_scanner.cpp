@@ -1,7 +1,9 @@
 #include "clean/Scanner.h"
+#include "clean/SystemFolders.h"
 
 #include <QDir>
 #include <QFile>
+#include <QSet>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -228,6 +230,21 @@ private slots:
         QVERIFY(Scanner::unsafeReason(path("web"), contents).isEmpty());
         // Rules only delete matching subfolders, so any folder is fine.
         QVERIFY(Scanner::unsafeReason(QDir::homePath(), {builtIn("rust")}).isEmpty());
+    }
+
+    void systemFoldersAreSafe()
+    {
+        // Whatever this computer has: each folder exists, is listed once and may be emptied.
+        const QList<CleanerType> contents{builtIn("contents")};
+        QSet<QString> paths;
+        for (const SystemFolder &f : SystemFolders::find()) {
+            QVERIFY2(QFileInfo(f.path).isDir(), qPrintable(f.path));
+            QVERIFY(!f.name.isEmpty());
+            QVERIFY(!f.note.isEmpty());
+            QVERIFY2(Scanner::unsafeReason(f.path, contents).isEmpty(), qPrintable(f.path));
+            QVERIFY(!paths.contains(f.path));
+            paths.insert(f.path);
+        }
     }
 
 private:

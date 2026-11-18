@@ -2,6 +2,7 @@
 
 #include "AppInfo.h"
 #include "DetectDialog.h"
+#include "SystemFoldersDialog.h"
 #include "FolderDialog.h"
 #include "FolderListView.h"
 #include "FolderModel.h"
@@ -146,6 +147,7 @@ void MainWindow::createActions()
     QAction *detect = file->addAction(tr("&Detect types in a folder…"), this,
                                       [this] { detectTypes(); });
     detect->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_D));
+    file->addAction(tr("Add &system folders…"), this, &MainWindow::addSystemFolders);
     QMenu *addKnown = file->addMenu(tr("Add a &tool cache"));
     connect(addKnown, &QMenu::aboutToShow, this, [this, addKnown] {
         addKnown->clear();
@@ -246,6 +248,7 @@ void MainWindow::createActions()
             menu->clear();
             menu->addAction(tr("Folder…"), this, &MainWindow::addFolder);
             menu->addAction(tr("Detect types in a folder…"), this, [this] { detectTypes(); });
+            menu->addAction(tr("System folders…"), this, &MainWindow::addSystemFolders);
             menu->addSeparator();
             fillAddMenu(menu);
         });
@@ -628,6 +631,15 @@ void MainWindow::detectTypes(const QUuid &id)
         return;
     }
     addFolderPath(path, types);
+}
+
+void MainWindow::addSystemFolders()
+{
+    SystemFoldersDialog dialog(m_store, SystemFolders::find(), this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    for (const SystemFolder &f : dialog.chosen())
+        addFolderPath(f.path, {BuiltInTypes::contentsId()}, f.name);
 }
 
 void MainWindow::addFolderPath(const QString &path, const QStringList &typeIds, const QString &name)
