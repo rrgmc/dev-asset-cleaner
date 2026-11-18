@@ -127,10 +127,10 @@ QImage render(int size, bool mono, bool warning)
         painter.fillPath(bodyPath(size).subtracted(bracesPath(size)), Qt::black);
         painter.fillPath(sparkle(size), Qt::black);
     } else {
-        painter.fillPath(lid, QColor(0x26, 0x46, 0x53));
-        painter.fillPath(bodyPath(size), QColor(0x2A, 0x9D, 0x8F));
-        painter.fillPath(bracesPath(size), QColor(0xF1, 0xFA, 0xEE));
-        painter.fillPath(sparkle(size), QColor(0xE9, 0xC4, 0x6A));
+        painter.fillPath(lid, QColor(0x8C, 0x3A, 0x28));
+        painter.fillPath(bodyPath(size), QColor(0xE7, 0x6F, 0x51));
+        painter.fillPath(bracesPath(size), QColor(0xFF, 0xF4, 0xEC));
+        painter.fillPath(sparkle(size), QColor(0xF4, 0xC9, 0x5D));
     }
     if (warning)
         paintBadge(painter, size);
