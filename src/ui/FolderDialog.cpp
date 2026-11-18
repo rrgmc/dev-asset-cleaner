@@ -1,5 +1,6 @@
 #include "FolderDialog.h"
 
+#include "ItemCheckStyle.h"
 #include "SizeSpinBox.h"
 #include "model/Store.h"
 
@@ -46,6 +47,7 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
         item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable | Qt::ItemIsSelectable);
         item->setCheckState(selected.contains(t.id) ? Qt::Checked : Qt::Unchecked);
     }
+    ItemCheckStyle::apply(m_types);
     connect(m_types, &QListWidget::itemChanged, this,
             [this](QListWidgetItem *item) { typeChanged(m_types->row(item)); });
 

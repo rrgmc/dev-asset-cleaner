@@ -50,6 +50,7 @@ qt_add_library(dac_ui STATIC
     src/ui/FolderModel.h src/ui/FolderModel.cpp
     src/ui/Format.h
     src/ui/Icons.h src/ui/Icons.cpp
+    src/ui/ItemCheckStyle.h src/ui/ItemCheckStyle.cpp
     src/ui/ItemsDialog.h src/ui/ItemsDialog.cpp
     src/ui/LoginItem.h
     src/ui/MainWindow.h src/ui/MainWindow.cpp

@@ -1,6 +1,7 @@
 #include "DetectDialog.h"
 
 #include "Format.h"
+#include "ItemCheckStyle.h"
 #include "model/Store.h"
 
 #include <QDialogButtonBox>
@@ -62,6 +63,7 @@ DetectDialog::DetectDialog(Store *store, const QString &path, QWidget *parent)
     m_results->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_results->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     m_results->setUniformRowHeights(true);
+    ItemCheckStyle::apply(m_results);
     connect(m_results, &QTreeWidget::itemChanged, this, &DetectDialog::updateButtons);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
