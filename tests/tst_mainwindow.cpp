@@ -193,6 +193,27 @@ private slots:
         rust.first()->setCheckState(0, Qt::Unchecked);
         QCOMPARE(dialog.typeIds(), QStringList{QStringLiteral("node")});
         QCOMPARE(dialog.path(), QDir::cleanPath(m_dir->filePath(QStringLiteral("projects"))));
+        QVERIFY(dialog.excludes().isEmpty());
+    }
+
+    void detectDialogSearchesWithoutExcludedFolders()
+    {
+        writeFile(m_dir->filePath(QStringLiteral("projects/web/package.json")), 5);
+        writeFile(m_dir->filePath(QStringLiteral("projects/web/node_modules/x.js")), 300);
+        const QString projects = QDir::cleanPath(m_dir->filePath(QStringLiteral("projects")));
+        // A folder in the list brings its excluded folders to the search.
+        m_window->addFolderPath(projects, {QStringLiteral("rust")}, {}, {},
+                                {QStringLiteral("app")});
+        DetectDialog dialog(m_store.get(), projects);
+        QCOMPARE(dialog.excludes(), QStringList{QStringLiteral("app")});
+        dialog.show();
+        auto *tree = dialog.findChild<QTreeWidget *>();
+        QVERIFY(tree);
+        // JavaScript only; nothing in the tree offers "Folder contents".
+        QTRY_COMPARE(tree->topLevelItemCount(), 2);
+        QCOMPARE(dialog.typeIds(), QStringList{QStringLiteral("node")});
+        for (int i = 0; i < tree->topLevelItemCount(); ++i)
+            QVERIFY(tree->topLevelItem(i)->text(0) != QStringLiteral("Folder contents"));
     }
 
     void systemFoldersDialogSkipsListedFolders()

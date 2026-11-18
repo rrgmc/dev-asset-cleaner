@@ -57,17 +57,22 @@ namespace Scanner {
 
 // Walks `path` and finds what `types` would delete. Symbolic links are counted as their own
 // size and never followed. Sizes are file sizes, not the disk blocks they use.
+//
+// `excludes` names entries directly inside `path` (first-level subfolders) that are never
+// deleted or searched; they still count toward the folder's total size. Names compare without
+// regard to case.
 ScanResult scan(const QString &path, const QList<CleanerType> &types,
-                const CancelCheck &canceled = {});
+                const CancelCheck &canceled = {}, const QStringList &excludes = {});
 
 // Finds which of `types` apply to `path`: walks it once with the rules of every rule-based type
 // and reports, per type, what it would delete. A folder that several types match counts for
-// each of them. "Folder contents" types are left out, since they match any folder.
+// each of them. "Folder contents" types are never detected, since they match any folder and
+// would delete everything in it. `excludes` works as in scan().
 //
 // Today detection covers the rule-based types, which are programming build outputs and
 // dependencies. Other kinds of detection can add their findings to DetectResult later.
 DetectResult detect(const QString &path, const QList<CleanerType> &types,
-                    const CancelCheck &canceled = {});
+                    const CancelCheck &canceled = {}, const QStringList &excludes = {});
 
 // The size of a file, or of a folder and everything below it.
 qint64 treeSize(const QString &path, const CancelCheck &canceled = {});

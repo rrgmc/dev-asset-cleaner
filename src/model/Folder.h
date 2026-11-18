@@ -13,6 +13,7 @@ struct Folder
     QStringList typeIds;   // cleaner types; empty means "Folder contents"
     qint64 warnBytes = 0;  // warn when the folder holds more than this; 0 turns it off
     QUuid groupId;         // not in the folder's JSON: the file nests folders in their group
+    QStringList excludes;  // names of first-level subfolders that cleaning never touches
 
     QJsonObject toJson() const;
     static Folder fromJson(const QJsonObject &obj);

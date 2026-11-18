@@ -11,6 +11,7 @@ QJsonObject Folder::toJson() const
         {QStringLiteral("types"), QJsonArray::fromStringList(typeIds)},
         // JSON numbers are doubles, exact for whole numbers up to 2^53 bytes.
         {QStringLiteral("warnBytes"), static_cast<double>(warnBytes)},
+        {QStringLiteral("excludes"), QJsonArray::fromStringList(excludes)},
     };
 }
 
@@ -27,5 +28,9 @@ Folder Folder::fromJson(const QJsonObject &obj)
             f.typeIds.append(v.toString());
     }
     f.warnBytes = static_cast<qint64>(obj.value(QStringLiteral("warnBytes")).toDouble(0));
+    for (const QJsonValue &v : obj.value(QStringLiteral("excludes")).toArray()) {
+        if (!v.toString().isEmpty())
+            f.excludes.append(v.toString());
+    }
     return f;
 }

@@ -780,17 +780,21 @@ void MainWindow::detectTypes(const QUuid &id)
         return;
     const QString path = dialog.path();
     const QStringList types = dialog.typeIds();
+    // Detection never picks "Folder contents", and an empty list would mean it.
+    if (types.isEmpty())
+        return;
     // The dialog's folder may be another one already in the list.
     if (const Folder *f = m_store->folderWithPath(path)) {
         Folder updated = *f;
         updated.typeIds = types;
+        updated.excludes = dialog.excludes();
         m_store->updateFolder(updated);
         m_monitor->rescan(updated.id);
         selectFolder(updated.id);
         showMessage(tr("%1 now uses the detected types.").arg(updated.name));
         return;
     }
-    addFolderPath(path, types);
+    addFolderPath(path, types, {}, {}, dialog.excludes());
 }
 
 void MainWindow::addSystemFolders()
@@ -803,7 +807,7 @@ void MainWindow::addSystemFolders()
 }
 
 void MainWindow::addFolderPath(const QString &path, const QStringList &typeIds, const QString &name,
-                               const QUuid &groupId)
+                               const QUuid &groupId, const QStringList &excludes)
 {
     const QString clean = QDir::cleanPath(QDir::fromNativeSeparators(path));
     if (const Folder *existing = m_store->folderWithPath(clean)) {
@@ -823,6 +827,7 @@ void MainWindow::addFolderPath(const QString &path, const QStringList &typeIds, 
     if (f.name.isEmpty())
         f.name = QDir::toNativeSeparators(clean);
     f.typeIds = typeIds.isEmpty() ? QStringList{BuiltInTypes::contentsId()} : typeIds;
+    f.excludes = excludes;
     const QUuid id = m_store->addFolder(f);
     selectFolder(id);
     m_list->setFocus();
@@ -839,7 +844,8 @@ void MainWindow::editFolder(const QUuid &id)
     const Folder before = *m_store->folder(id);
     const Folder after = dialog.folder();
     m_store->updateFolder(after);
-    if (before.path != after.path || before.typeIds != after.typeIds)
+    if (before.path != after.path || before.typeIds != after.typeIds
+        || before.excludes != after.excludes)
         m_monitor->rescan(id);
 }
 

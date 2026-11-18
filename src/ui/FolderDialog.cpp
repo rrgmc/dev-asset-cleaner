@@ -1,5 +1,6 @@
 #include "FolderDialog.h"
 
+#include "ExcludeDialog.h"
 #include "ItemCheckStyle.h"
 #include "SizeSpinBox.h"
 #include "model/Store.h"
@@ -27,6 +28,7 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     , m_name(new QLineEdit(folder.name, this))
     , m_path(new QLineEdit(QDir::toNativeSeparators(folder.path), this))
     , m_types(new QListWidget(this))
+    , m_excludes(new QLabel(ExcludeDialog::summary(folder.excludes), this))
     , m_warn(new SizeSpinBox(this))
 {
     setWindowTitle(tr("Folder"));
@@ -59,6 +61,14 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
         this);
     typesHint->setWordWrap(true);
 
+    m_excludes->setWordWrap(true);
+    m_excludes->setTextFormat(Qt::PlainText);
+    auto *chooseExcludes = new QPushButton(tr("&Choose…"), this);
+    connect(chooseExcludes, &QPushButton::clicked, this, &FolderDialog::chooseExcludes);
+    auto *excludeRow = new QHBoxLayout;
+    excludeRow->addWidget(m_excludes, 1);
+    excludeRow->addWidget(chooseExcludes);
+
     auto *form = new QFormLayout;
     // macOS keeps fields at their size hint by default, which leaves the text fields narrow.
     form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
@@ -69,6 +79,9 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     form->addRow(pathLabel, pathRow);
     form->addRow(tr("&Types:"), m_types);
     form->addRow(QString(), typesHint);
+    auto *excludeLabel = new QLabel(tr("&Excluded:"), this);
+    excludeLabel->setBuddy(chooseExcludes);
+    form->addRow(excludeLabel, excludeRow);
     form->addRow(tr("&Warn above:"), m_warn);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -98,6 +111,16 @@ Folder FolderDialog::folder() const
     }
     f.warnBytes = m_warn->bytes();
     return f;
+}
+
+void FolderDialog::chooseExcludes()
+{
+    const QString path = QDir::cleanPath(QDir::fromNativeSeparators(m_path->text().trimmed()));
+    ExcludeDialog dialog(path, m_folder.excludes, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    m_folder.excludes = dialog.excludes();
+    m_excludes->setText(ExcludeDialog::summary(m_folder.excludes));
 }
 
 void FolderDialog::browse()

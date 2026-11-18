@@ -22,6 +22,9 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 - **Detect types in a folder** searches a folder and lists the cleaner types that apply to it,
   with what each would free. Check the ones to keep, and the folder is added with them, or an
   existing folder switches to them.
+- Each folder can **exclude** some of its first-level subfolders, such as a project you are
+  working on. Cleaning never searches or deletes them, with any type. Set them in the folder's
+  settings or with **Exclude** in Detect types.
 - The **Add** button also offers the tool caches it finds on this computer, such as the Go
   module cache, the npm cache, Gradle's caches and Xcode's derived data.
 - **Add system folders** lists the operating system's trash and cache folders that are safe to
@@ -79,8 +82,9 @@ To find which types fit a folder, use **File > Detect types in a folder** (or **
 types** in a folder's right-click menu). It walks the folder once with the rules of every type
 that matches folders, and lists each type that found something, with its folders and their
 size. "All programming languages" is listed too, but starts unchecked, since it repeats the
-others. Detection covers programming build outputs and dependencies today; other kinds of
-findings can be added to it later.
+others. Detection never suggests **Folder contents**, which would delete everything in the
+folder. It skips the excluded subfolders. Detection covers programming build outputs and
+dependencies today; other kinds of findings can be added to it later.
 
 Add your own types in **Tools > Cleaner types**. A built-in type cannot be changed, but
 **Duplicate** makes an editable copy of it. A folder can use several types at once, for example

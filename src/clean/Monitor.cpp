@@ -70,9 +70,11 @@ void Monitor::rescan(const QUuid &id)
     const int generation = ++entry.generation;
     const QString path = f->path;
     const QList<CleanerType> types = m_store->typesFor(*f);
+    const QStringList excludes = f->excludes;
     const auto cancel = entry.cancel;
-    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, path, types, cancel] {
-        const ScanResult result = Scanner::scan(path, types, [cancel] { return cancel->load(); });
+    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, path, types, excludes, cancel] {
+        const ScanResult result =
+            Scanner::scan(path, types, [cancel] { return cancel->load(); }, excludes);
         QMetaObject::invokeMethod(this, [this, id, generation, result] {
             finish(id, generation, result, nullptr);
         });
@@ -98,6 +100,7 @@ void Monitor::clean(const QUuid &id)
         return;
     const QString path = f->path;
     const QList<CleanerType> types = m_store->typesFor(*f);
+    const QStringList excludes = f->excludes;
     const QString reason = Scanner::unsafeReason(path, types);
     if (!reason.isEmpty()) {
         emit cleanRefused(id, reason);
@@ -107,14 +110,14 @@ void Monitor::clean(const QUuid &id)
     entry.cancel = std::make_shared<std::atomic_bool>(false);
     const int generation = ++entry.generation;
     const auto cancel = entry.cancel;
-    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, path, types, cancel] {
+    entry.future = QtConcurrent::run(&m_pool, [this, id, generation, path, types, excludes, cancel] {
         const CancelCheck canceled = [cancel] { return cancel->load(); };
         // Scan again rather than trust an old result: the folder may have changed since.
-        const ScanResult before = Scanner::scan(path, types, canceled);
+        const ScanResult before = Scanner::scan(path, types, canceled, excludes);
         CleanResult cleanResult;
         if (before.valid && before.error.isEmpty())
             cleanResult = Scanner::clean(before.items, canceled);
-        const ScanResult after = Scanner::scan(path, types, canceled);
+        const ScanResult after = Scanner::scan(path, types, canceled, excludes);
         QMetaObject::invokeMethod(this, [this, id, generation, after, cleanResult] {
             finish(id, generation, after, &cleanResult);
         });

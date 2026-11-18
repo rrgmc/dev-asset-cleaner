@@ -44,6 +44,11 @@ bool isLink(const QFileInfo &info)
     return info.isSymbolicLink();
 }
 
+bool isExcluded(const QString &name, const QStringList &excludes)
+{
+    return excludes.contains(name, Qt::CaseInsensitive);
+}
+
 struct CompiledRule
 {
     int type = 0;  // index into the types the rules came from
@@ -73,15 +78,18 @@ public:
     // Called with the folder, its size and the indexes of the types whose rules matched it.
     using OnMatch = std::function<void(const QString &path, qint64 bytes, const QList<int> &types)>;
 
-    Walker(QList<CompiledRule> rules, const CancelCheck &canceled, OnMatch onMatch)
+    Walker(QList<CompiledRule> rules, const CancelCheck &canceled, OnMatch onMatch,
+           QStringList excludes = {})
         : m_rules(std::move(rules))
         , m_canceled(canceled)
         , m_onMatch(std::move(onMatch))
+        , m_excludes(std::move(excludes))
     {
     }
 
-    // Returns the size of everything below dirPath.
-    qint64 walk(const QString &dirPath)
+    // Returns the size of everything below dirPath. On the first level, the excluded entries
+    // are sized but never matched or searched.
+    qint64 walk(const QString &dirPath, bool top = true)
     {
         if (m_canceled && m_canceled())
             return 0;
@@ -99,13 +107,17 @@ public:
                 total += e.size();
                 continue;
             }
+            if (top && isExcluded(e.fileName(), m_excludes)) {
+                total += Scanner::treeSize(e.filePath(), m_canceled);
+                continue;
+            }
             const QList<int> types = matches(e.fileName(), names);
             if (!types.isEmpty()) {
                 const qint64 bytes = Scanner::treeSize(e.filePath(), m_canceled);
                 m_onMatch(e.filePath(), bytes, types);
                 total += bytes;
             } else {
-                total += walk(e.filePath());
+                total += walk(e.filePath(), false);
             }
         }
         return total;
@@ -136,6 +148,7 @@ private:
     QList<CompiledRule> m_rules;
     const CancelCheck &m_canceled;
     OnMatch m_onMatch;
+    QStringList m_excludes;
 };
 
 bool hasContentsType(const QList<CleanerType> &types)
@@ -158,7 +171,8 @@ void makeWritable(const QString &path, bool isDir)
 
 namespace Scanner {
 
-ScanResult scan(const QString &path, const QList<CleanerType> &types, const CancelCheck &canceled)
+ScanResult scan(const QString &path, const QList<CleanerType> &types, const CancelCheck &canceled,
+                const QStringList &excludes)
 {
     ScanResult result;
     const QFileInfo root(path);
@@ -174,16 +188,19 @@ ScanResult scan(const QString &path, const QList<CleanerType> &types, const Canc
                 break;
             const qint64 bytes = isLink(e) ? 0 : e.isDir() ? treeSize(e.filePath(), canceled)
                                                            : e.size();
-            result.items.append(ScanItem{e.filePath(), bytes});
             result.totalBytes += bytes;
+            if (isExcluded(e.fileName(), excludes))
+                continue;
+            result.items.append(ScanItem{e.filePath(), bytes});
+            result.cleanableBytes += bytes;
         }
-        result.cleanableBytes = result.totalBytes;
     } else {
         Walker walker(compile(types), canceled,
                       [&result](const QString &item, qint64 bytes, const QList<int> &) {
                           result.items.append(ScanItem{item, bytes});
                           result.cleanableBytes += bytes;
-                      });
+                      },
+                      excludes);
         result.totalBytes = walker.walk(path);
     }
 
@@ -215,7 +232,7 @@ qint64 treeSize(const QString &path, const CancelCheck &canceled)
 }
 
 DetectResult detect(const QString &path, const QList<CleanerType> &types,
-                    const CancelCheck &canceled)
+                    const CancelCheck &canceled, const QStringList &excludes)
 {
     DetectResult result;
     const QFileInfo root(path);
@@ -224,8 +241,8 @@ DetectResult detect(const QString &path, const QList<CleanerType> &types,
         result.valid = true;
         return result;
     }
-    // Only types that pick out parts of a folder can be detected; "Folder contents" would
-    // match anything.
+    // Only types that pick out parts of a folder can be detected. "Folder contents" would
+    // match any folder and delete everything in it, so it is never suggested.
     QList<CleanerType> candidates;
     for (const CleanerType &t : types) {
         if (t.mode == CleanerType::Mode::Rules && !t.rules.isEmpty())
@@ -242,7 +259,8 @@ DetectResult detect(const QString &path, const QList<CleanerType> &types,
                           found[t].bytes += bytes;
                       }
                       result.cleanableBytes += bytes;
-                  });
+                  },
+                  excludes);
     result.totalBytes = walker.walk(path);
 
     for (Detection &d : found) {

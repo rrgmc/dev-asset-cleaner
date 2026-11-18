@@ -106,6 +106,42 @@ private slots:
         QCOMPARE(r.totalBytes, 375);
     }
 
+    void excludedFoldersAreSkipped()
+    {
+        // Rules: the excluded project is sized but not searched. Names ignore case.
+        const ScanResult r = Scanner::scan(m_dir->path(), {builtIn("rust"), builtIn("node")}, {},
+                                           {QStringLiteral("RustProj")});
+        QCOMPARE(relativePaths(m_dir->path(), r.items), QStringList{QStringLiteral("web/node_modules")});
+        QCOMPARE(r.cleanableBytes, 370);
+        QCOMPARE(r.totalBytes, 10 + 20 + 1500 + 40 + 5 + 300 + 70 + 3 + 200);
+
+        // Only first-level names count: a deeper folder of the same name is still searched.
+        writeFile(path("web/rustproj/Cargo.toml"), 1);
+        writeFile(path("web/rustproj/target/x"), 7);
+        const ScanResult deep = Scanner::scan(path("web"), {builtIn("rust")}, {},
+                                              {QStringLiteral("target")});
+        QCOMPARE(relativePaths(path("web"), deep.items), QStringList{QStringLiteral("rustproj/target")});
+
+        // An excluded first-level folder that a rule matches is left alone too.
+        const ScanResult top = Scanner::scan(path("rustproj"), {builtIn("rust")}, {},
+                                             {QStringLiteral("target")});
+        QVERIFY(top.items.isEmpty());
+        QCOMPARE(top.totalBytes, 1530);
+    }
+
+    void excludedFoldersSurviveContents()
+    {
+        const ScanResult r = Scanner::scan(path("web"), {builtIn("contents")}, {},
+                                           {QStringLiteral("node_modules")});
+        QCOMPARE(relativePaths(path("web"), r.items), QStringList{QStringLiteral("package.json")});
+        QCOMPARE(r.cleanableBytes, 5);
+        QCOMPARE(r.totalBytes, 375);
+        const CleanResult c = Scanner::clean(r.items);
+        QVERIFY(c.failures.isEmpty());
+        QVERIFY(QFileInfo::exists(path("web/node_modules/a/index.js")));
+        QVERIFY(!QFileInfo::exists(path("web/package.json")));
+    }
+
     void missingFolderIsAnError()
     {
         const ScanResult r = Scanner::scan(path("nope"), {builtIn("contents")});
@@ -209,6 +245,15 @@ private slots:
         QCOMPARE(r.detections.at(0).bytes, 50);
         QCOMPARE(r.detections.at(1).bytes, 50);
         QCOMPARE(r.cleanableBytes, 50);
+    }
+
+    void detectSkipsExcludedFolders()
+    {
+        const DetectResult r = Scanner::detect(m_dir->path(), {builtIn("rust"), builtIn("node")}, {},
+                                               {QStringLiteral("rustproj")});
+        QCOMPARE(r.detections.size(), 1);
+        QCOMPARE(r.detections.first().typeId, QStringLiteral("node"));
+        QCOMPARE(r.cleanableBytes, 370);
     }
 
     void detectNothing()

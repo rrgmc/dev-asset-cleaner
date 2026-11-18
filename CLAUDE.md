@@ -75,6 +75,9 @@ work in the main checkout's working tree, which stays on `master`.
   home folder and folders above it; `Monitor::clean` checks it. `removeTree` never follows
   symbolic links or junctions. Cleaning scans again before it deletes, so it never deletes from
   an old result.
+- `Scanner::detect` never suggests "Folder contents", and `DetectDialog` never falls back to
+  it. A folder's `excludes` names first-level subfolders that `scan` and `detect` size but
+  never match or delete, with any type; `ExcludeDialog` edits them.
 - Built-in types are code (`BuiltInTypes::all`), not data. Custom types are stored; a stored
   type with a built-in id is ignored. "All programming languages" is the union of the other
   built-in rules, and a test checks that.

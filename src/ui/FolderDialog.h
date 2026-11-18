@@ -4,6 +4,7 @@
 
 #include <QDialog>
 
+class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
@@ -22,6 +23,7 @@ public:
 
 private:
     void browse();
+    void chooseExcludes();
     void typeChanged(int row);
     void updateOk();
 
@@ -29,6 +31,7 @@ private:
     QLineEdit *m_name;
     QLineEdit *m_path;
     QListWidget *m_types;
+    QLabel *m_excludes;
     SizeSpinBox *m_warn;
     QPushButton *m_ok = nullptr;
 };
