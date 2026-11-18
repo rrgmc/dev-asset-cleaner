@@ -16,6 +16,8 @@ public:
         setSingleStep(1);
         setSuffix(tr(" GB"));
         setSpecialValueText(tr("Off"));
+        // Stays at its own width when the form around it grows its fields.
+        setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     }
 
     qint64 bytes() const { return static_cast<qint64>(value() * 1e9); }

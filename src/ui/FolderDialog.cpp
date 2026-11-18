@@ -60,8 +60,13 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     typesHint->setWordWrap(true);
 
     auto *form = new QFormLayout;
+    // macOS keeps fields at their size hint by default, which leaves the text fields narrow.
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     form->addRow(tr("&Name:"), m_name);
-    form->addRow(tr("&Path:"), pathRow);
+    // A row given a layout gets no buddy, and the label would show its '&'.
+    auto *pathLabel = new QLabel(tr("&Path:"), this);
+    pathLabel->setBuddy(m_path);
+    form->addRow(pathLabel, pathRow);
     form->addRow(tr("&Types:"), m_types);
     form->addRow(QString(), typesHint);
     form->addRow(tr("&Warn above:"), m_warn);
