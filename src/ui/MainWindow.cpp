@@ -67,9 +67,10 @@ constexpr int TrayRetryMs = 2000;
 constexpr int TrayClickMs = 1500;
 
 #ifdef Q_OS_MACOS
-// Qt's macOS style fills the status bar with the old Aqua title bar gradient, which on current
-// macOS is much lighter than the window. This style fills it with the window colour instead and
-// keeps a thin separator line at the top.
+// Qt's macOS style fills the status bar with the palette's window colour, which on macOS 27 is
+// white, while the rest of the window shows AppKit's grey window background through Qt's
+// transparent view. This style leaves the background unpainted, so the status bar shows the
+// same grey, and draws only a thin separator line at the top.
 class StatusBarStyle : public QProxyStyle
 {
 public:
@@ -81,7 +82,6 @@ public:
             return;
         }
         const QRect rect = option->rect;
-        painter->fillRect(rect, option->palette.color(QPalette::Window));
         QColor line = option->palette.color(QPalette::WindowText);
         line.setAlphaF(0.15f);
         painter->fillRect(QRect(rect.left(), rect.top(), rect.width(), 1), line);
