@@ -5,6 +5,20 @@ deletes build outputs and caches in them. `README.md` describes the features and
 users. The build, packaging, release and platform code come from the sibling project favdir;
 keep fixes to those parts in step with it.
 
+## Worktrees
+
+This repository requires git worktrees. Before the first edit, call `EnterWorktree` to make a
+feature branch with its own checkout; do not branch in place with `git checkout -b`. Never
+work in the main checkout's working tree, which stays on `master`.
+
+- Worktrees go in `.claude/worktrees/` (gitignored).
+- Each worktree has its own `build/` folder, so the first build in a new worktree configures
+  from scratch.
+- Qt is shared only through `QT_ROOT`. Without it, `scripts/setup.ps1` or `scripts/setup.sh`
+  downloads Qt again into the worktree's own `.qt/`, so set `QT_ROOT` first.
+- Merging to `master` happens in the main checkout. Remove the worktree and delete its branch
+  as part of the merge.
+
 ## Build and test
 
 - Qt is a prebuilt download, fetched by `scripts/setup.ps1` or `scripts/setup.sh` into the
