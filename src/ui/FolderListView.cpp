@@ -3,6 +3,7 @@
 #include "FolderDelegate.h"
 #include "FolderModel.h"
 #include "GroupListView.h"
+#include "Spinner.h"
 
 #include <QContextMenuEvent>
 #include <QCursor>
@@ -34,6 +35,31 @@ FolderListView::FolderListView(FolderModel *model, QWidget *parent)
         if (!m_keptId.isNull())
             selectId(m_keptId);
     });
+
+    m_spinnerTimer.setInterval(Spinner::FrameMs);
+    connect(&m_spinnerTimer, &QTimer::timeout, this, [this] {
+        for (int row = 0; row < m_model->rowCount(); ++row) {
+            const QModelIndex index = m_model->index(row);
+            if (index.data(FolderModel::BusyRole).toBool())
+                viewport()->update(visualRect(index));
+        }
+    });
+    connect(model, &QAbstractItemModel::dataChanged, this, &FolderListView::updateSpinner);
+    connect(model, &QAbstractItemModel::modelReset, this, &FolderListView::updateSpinner);
+    connect(model, &QAbstractItemModel::rowsInserted, this, &FolderListView::updateSpinner);
+    connect(model, &QAbstractItemModel::rowsRemoved, this, &FolderListView::updateSpinner);
+    updateSpinner();
+}
+
+void FolderListView::updateSpinner()
+{
+    bool busy = false;
+    for (int row = 0; row < m_model->rowCount() && !busy; ++row)
+        busy = m_model->index(row).data(FolderModel::BusyRole).toBool();
+    if (busy && !m_spinnerTimer.isActive())
+        m_spinnerTimer.start();
+    else if (!busy)
+        m_spinnerTimer.stop();
 }
 
 void FolderListView::startDrag(Qt::DropActions)

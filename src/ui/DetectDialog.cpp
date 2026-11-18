@@ -3,6 +3,7 @@
 #include "ExcludeDialog.h"
 #include "Format.h"
 #include "ItemCheckStyle.h"
+#include "Spinner.h"
 #include "model/Store.h"
 
 #include <QDialogButtonBox>
@@ -31,6 +32,7 @@ DetectDialog::DetectDialog(Store *store, const QString &path, QWidget *parent)
     , m_exclude(new QPushButton(tr("E&xclude…"), this))
     , m_excludeLabel(new QLabel(this))
     , m_status(new QLabel(this))
+    , m_spinner(new SpinnerWidget(this))
     , m_results(new QTreeWidget(this))
     , m_autoStart(!path.isEmpty())
 {
@@ -94,7 +96,10 @@ DetectDialog::DetectDialog(Store *store, const QString &path, QWidget *parent)
     layout->addWidget(hint);
     layout->addLayout(excludeRow);
     layout->addWidget(m_results, 1);
-    layout->addWidget(m_status);
+    auto *statusRow = new QHBoxLayout;
+    statusRow->addWidget(m_spinner);
+    statusRow->addWidget(m_status, 1);
+    layout->addLayout(statusRow);
     layout->addWidget(buttons);
     updateButtons();
 }
@@ -253,6 +258,7 @@ void DetectDialog::finished()
 void DetectDialog::updateButtons()
 {
     const bool running = m_watcher.isRunning();
+    m_spinner->setRunning(running);
     m_search->setText(running ? tr("S&top") : tr("&Search"));
     m_search->setEnabled(running || !m_path->text().trimmed().isEmpty());
     m_path->setEnabled(!running);
