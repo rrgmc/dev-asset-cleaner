@@ -18,5 +18,9 @@ QImage render(int size, bool mono = false, bool warning = false);
 // code: Qt 6.8 draws theme icons from SF Symbols, and AppKit aborts the app while it does so on
 // macOS 27.
 QIcon toolIcon(QIcon::ThemeIcon icon);
+// The toolbar's sort buttons for the group list and the folder list, drawn in code everywhere:
+// the themes have no sort icons.
+QIcon sortGroupsIcon();
+QIcon sortFoldersIcon();
 
 } // namespace Icons

@@ -248,6 +248,23 @@ void Store::moveGroupBy(const QUuid &id, int delta)
     touch();
 }
 
+void Store::moveGroupNextTo(const QUuid &id, const QUuid &targetId, bool after)
+{
+    const int row = groupRowOf(id);
+    int to = groupRowOf(targetId);
+    if (row < 0 || to < 0 || id == targetId)
+        return;
+    // The target's row once the group is taken out of the list.
+    if (to > row)
+        --to;
+    if (after)
+        ++to;
+    if (to == row)
+        return;
+    m_groups.move(row, to);
+    touch();
+}
+
 QList<Folder> Store::foldersIn(const QList<QUuid> &groupIds) const
 {
     QList<Folder> result;
@@ -328,6 +345,24 @@ void Store::moveBy(const QUuid &id, int delta)
     if (to == position)
         return;
     m_folders.move(row, rows.at(to));
+    touch();
+}
+
+void Store::moveNextTo(const QUuid &id, const QUuid &targetId, bool after)
+{
+    const int row = rowOf(id);
+    int to = rowOf(targetId);
+    if (row < 0 || to < 0 || id == targetId
+        || m_folders.at(row).groupId != m_folders.at(to).groupId)
+        return;
+    // The target's row once the folder is taken out of the list.
+    if (to > row)
+        --to;
+    if (after)
+        ++to;
+    if (to == row)
+        return;
+    m_folders.move(row, to);
     touch();
 }
 

@@ -70,7 +70,10 @@ work in the main checkout's working tree, which stays on `master`.
   can be selected) beside a `FolderListView` over a `FolderModel`, which shows the selected
   groups' folders and is painted by `FolderDelegate`. Folders are dragged onto a group with
   the `GroupListView::folderMimeType` drag, which `FolderListView::startDrag` starts itself
-  so that a Move drop never removes model rows. "Clean all" and "Rescan all" act on the
+  so that a Move drop never removes model rows. In manual order the same drag dropped within
+  the folder list, and the `GroupListView::groupMimeType` drag within the group list, reorder
+  the store (`Store::moveNextTo`, `moveGroupNextTo`); `ReorderDrop` finds the place and draws
+  the style's drop indicator. "Clean all" and "Rescan all" act on the
   selected groups; Tools has the commands for every group. `FolderListView` derives from
   `CleanableListView`, which handles the Clean buttons and spinners of any model that answers
   `FolderModel`'s roles. `SubfolderDialog` (Folder > Clean subfolders, Matching folders only)
@@ -80,7 +83,9 @@ work in the main checkout's working tree, which stays on `master`.
   `GroupModel` and `FolderModel` sort their own rows (`SortOrder`: manual, name, or space to
   clean), so row numbers from `idAt` and `rowOf` stay valid; a re-sort is a layout change that
   keeps the selection. View > Sort groups by / Sort folders by picks the order, kept in
-  QSettings beside the window geometry, and Move up and down work only in manual order.
+  QSettings beside the window geometry, and Move up and down work only in manual order. The
+  toolbar's two sort buttons open the same submenus; their icons are drawn in code on every
+  platform (`Icons::sortGroupsIcon`, `sortFoldersIcon`).
   `UsagePanel`, in the toolbar right of the buttons, paints the space to clean in every
   folder, plus in the selected groups when they are not all of them. `FreeSpaceDialog` (the Free space
   button) lists every disk that holds a monitored folder; the status bar shows only the disks

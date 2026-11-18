@@ -23,9 +23,11 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMenu>
 #include <QPushButton>
 #include <QSettings>
 #include <QTemporaryDir>
+#include <QToolBar>
 #include <QTreeWidget>
 #include <QTest>
 
@@ -351,6 +353,88 @@ private slots:
         QVERIFY(moveUp = findAction(QStringLiteral("Move &up"), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Up)));
         m_list->selectId(selected);
         QVERIFY(moveUp->isEnabled());
+    }
+
+    void manualMoves()
+    {
+        const QUuid first = m_store->groups().first().id;
+        const QUuid second = m_store->addGroup(QStringLiteral("Second"));
+        m_groups->selectId(second);
+        QAction *groupUp = findAction(QStringLiteral("Move &up"), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Up));
+        QVERIFY(groupUp);
+        QVERIFY(groupUp->isEnabled());
+        groupUp->trigger();
+        QCOMPARE(m_store->groups().first().id, second);
+        QCOMPARE(m_groups->model()->index(0, 0).data(GroupModel::IdRole).toUuid(), second);
+        QCOMPARE(m_groups->selectedIds(), QList<QUuid>{second});
+        QVERIFY(groupUp->isEnabled());
+
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole, {}, QStringLiteral("A"));
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching,
+                                {QStringLiteral("rust")}, QStringLiteral("B"));
+        const auto names = [this] {
+            QStringList list;
+            for (int row = 0; row < m_list->model()->rowCount(); ++row)
+                list.append(m_list->model()->index(row, 0).data().toString());
+            return list;
+        };
+        QCOMPARE(names(), (QStringList{"A", "B"}));
+        const QUuid b = m_store->folders().at(1).id;
+        m_list->selectId(b);
+        QAction *folderUp = findAction(QStringLiteral("Move &up"), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Up));
+        QVERIFY(folderUp);
+        QVERIFY(folderUp->isEnabled());
+        folderUp->trigger();
+        QCOMPARE(names(), (QStringList{"B", "A"}));
+        QCOMPARE(m_list->currentId(), b);
+        QVERIFY(folderUp->isEnabled());
+
+        // The shortcuts work while the lists have the focus.
+        m_list->setFocus();
+        QTest::keyClick(m_list, Qt::Key_Down, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(names(), (QStringList{"A", "B"}));
+        m_groups->setFocus();
+        QTest::keyClick(m_groups, Qt::Key_Down, Qt::ControlModifier | Qt::AltModifier);
+        QCOMPARE(m_store->groups().last().id, second);
+
+        // A drop within a list moves the row there and keeps it current.
+        emit m_list->folderMoveRequested(b, m_store->folders().at(0).id, false);
+        QCOMPARE(names(), (QStringList{"B", "A"}));
+        QCOMPARE(m_list->currentId(), b);
+        emit m_groups->groupMoveRequested(second, first, false);
+        QCOMPARE(m_store->groups().first().id, second);
+        QCOMPARE(m_groups->selectedIds(), QList<QUuid>{second});
+
+        // The manual order comes back after another sort order.
+        m_window->setFolderSort(SortOrder::Name);
+        QCOMPARE(names(), (QStringList{"A", "B"}));
+        m_window->setFolderSort(SortOrder::Manual);
+        QCOMPARE(names(), (QStringList{"B", "A"}));
+    }
+
+    void sortButtons()
+    {
+        auto *toolbar = m_window->findChild<QToolBar *>();
+        QVERIFY(toolbar);
+        QAction *groups = nullptr;
+        QAction *folders = nullptr;
+        for (QAction *a : toolbar->actions()) {
+            if (a->text() == QStringLiteral("Sort groups"))
+                groups = a;
+            else if (a->text() == QStringLiteral("Sort folders"))
+                folders = a;
+        }
+        QVERIFY(groups && groups->menu());
+        QVERIFY(folders && folders->menu());
+        QCOMPARE(groups->iconText(), QStringLiteral("Sort groups: Manual order"));
+
+        // Choosing from the button's menu sorts the list and changes the tooltip.
+        for (QAction *a : folders->menu()->actions()) {
+            if (a->data().toString() == QStringLiteral("name"))
+                a->trigger();
+        }
+        QCOMPARE(m_list->folderModel()->sortOrder(), SortOrder::Name);
+        QCOMPARE(folders->iconText(), QStringLiteral("Sort folders: Name"));
     }
 
     void filterHidesOtherFolders()

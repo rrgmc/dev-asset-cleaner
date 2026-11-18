@@ -127,6 +127,16 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     connect(m_groups, &GroupListView::groupContextMenu, this, &MainWindow::showGroupContextMenu);
     connect(m_groups, &GroupListView::deleteRequested, this, &MainWindow::removeGroups);
     connect(m_groups, &GroupListView::foldersDropped, this, &MainWindow::moveFoldersToGroup);
+    connect(m_groups, &GroupListView::groupMoveRequested, this,
+            [this](const QUuid &id, const QUuid &targetId, bool after) {
+                m_store->moveGroupNextTo(id, targetId, after);
+                m_groups->selectId(id);
+            });
+    connect(m_list, &FolderListView::folderMoveRequested, this,
+            [this](const QUuid &id, const QUuid &targetId, bool after) {
+                m_store->moveNextTo(id, targetId, after);
+                m_list->selectId(id);
+            });
     connect(m_groups, &GroupListView::filesDropped, this,
             [this](const QStringList &paths, const QUuid &groupId) {
                 for (const QString &p : paths)
@@ -385,6 +395,20 @@ void MainWindow::createActions()
     }
     addButton(edit, tr("Edit"));
     addButton(remove, tr("Remove"));
+    toolbar->addSeparator();
+    // The sort buttons open the View menu's sort submenus.
+    m_groupSortButton = new QAction(Icons::sortGroupsIcon(), tr("Sort groups"), this);
+    m_folderSortButton = new QAction(Icons::sortFoldersIcon(), tr("Sort folders"), this);
+    for (auto [action, actions] : {std::pair{m_groupSortButton, m_groupSortActions},
+                                   std::pair{m_folderSortButton, m_folderSortActions}}) {
+        action->setMenu(static_cast<QMenu *>(actions->parent()));
+        toolbar->addAction(action);
+        if (auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(action))) {
+            button->setPopupMode(QToolButton::InstantPopup);
+            button->setFocusPolicy(Qt::NoFocus);
+        }
+    }
+    updateSortButtons();
     toolbar->addSeparator();
     addButton(rescan, tr("Rescan"));
     addButton(m_cleanAction, tr("Clean"));
@@ -1139,6 +1163,19 @@ void MainWindow::setGroupSort(SortOrder order)
         a->setChecked(a->data().toString() == Sorting::id(order));
     QSettings().setValue(QStringLiteral("view/groupSort"), Sorting::id(order));
     updateGroupActions();
+    updateSortButtons();
+}
+
+void MainWindow::updateSortButtons()
+{
+    // The tooltips (from the icon text) name the order in use.
+    const auto plain = [](SortOrder order) { return Sorting::label(order).remove(QLatin1Char('&')); };
+    if (m_groupSortButton)
+        m_groupSortButton->setIconText(
+            tr("Sort groups: %1").arg(plain(m_groupModel->sortOrder())));
+    if (m_folderSortButton)
+        m_folderSortButton->setIconText(
+            tr("Sort folders: %1").arg(plain(m_model->sortOrder())));
 }
 
 void MainWindow::setFolderSort(SortOrder order)
@@ -1150,6 +1187,7 @@ void MainWindow::setFolderSort(SortOrder order)
         a->setChecked(a->data().toString() == Sorting::id(order));
     QSettings().setValue(QStringLiteral("view/folderSort"), Sorting::id(order));
     updateFolderActions();
+    updateSortButtons();
 }
 
 void MainWindow::moveGroup(int delta)

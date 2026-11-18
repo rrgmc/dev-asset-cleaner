@@ -242,6 +242,49 @@ private slots:
         QVERIFY(!store.folder(a));
     }
 
+    void moveNextTo()
+    {
+        Store store(QStringLiteral("unused.json"));
+        store.setAutoSave(false);
+        const QUuid g1 = store.addGroup(QStringLiteral("one"));
+        const QUuid g2 = store.addGroup(QStringLiteral("two"));
+        const QUuid g3 = store.addGroup(QStringLiteral("three"));
+        const auto groupIds = [&store] {
+            QList<QUuid> ids;
+            for (const Group &g : store.groups())
+                ids.append(g.id);
+            return ids;
+        };
+        store.moveGroupNextTo(g1, g3, true);
+        QCOMPARE(groupIds(), (QList<QUuid>{g2, g3, g1}));
+        store.moveGroupNextTo(g1, g2, false);
+        QCOMPARE(groupIds(), (QList<QUuid>{g1, g2, g3}));
+        store.moveGroupNextTo(g3, g2, false);
+        QCOMPARE(groupIds(), (QList<QUuid>{g1, g3, g2}));
+        QSignalSpy changed(&store, &Store::changed);
+        store.moveGroupNextTo(g3, g1, true);  // already there
+        QCOMPARE(changed.count(), 0);
+
+        const QUuid a = store.addFolder(Folder{{}, QStringLiteral("a"), QStringLiteral("/a"), {}, 0, g1});
+        const QUuid x = store.addFolder(Folder{{}, QStringLiteral("x"), QStringLiteral("/x"), {}, 0, g2});
+        const QUuid b = store.addFolder(Folder{{}, QStringLiteral("b"), QStringLiteral("/b"), {}, 0, g1});
+        const QUuid c = store.addFolder(Folder{{}, QStringLiteral("c"), QStringLiteral("/c"), {}, 0, g1});
+        const auto folderIds = [&store, g1] {
+            QList<QUuid> ids;
+            for (const Folder &f : store.foldersIn({g1}))
+                ids.append(f.id);
+            return ids;
+        };
+        store.moveNextTo(c, a, false);
+        QCOMPARE(folderIds(), (QList<QUuid>{c, a, b}));
+        store.moveNextTo(c, b, true);
+        QCOMPARE(folderIds(), (QList<QUuid>{a, b, c}));
+        // Not next to another group's folder.
+        store.moveNextTo(a, x, false);
+        QCOMPARE(folderIds(), (QList<QUuid>{a, b, c}));
+        QCOMPARE(store.folder(a)->groupId, g1);
+    }
+
     void groups()
     {
         Store store(QStringLiteral("unused.json"));
