@@ -89,6 +89,40 @@ private slots:
         QCOMPARE(r.items.first().bytes, 1500);
     }
 
+    void subfoldersAddUpToTheScan()
+    {
+        // A project at the top level too: its target folder is itself a first-level subfolder.
+        writeFile(path("Cargo.toml"), 1);
+        writeFile(path("target/out"), 9);
+        const QList<CleanerType> types{builtIn("rust"), builtIn("node"), builtIn("cpp")};
+        const ScanResult whole = Scanner::scan(m_dir->path(), types);
+
+        QList<ScanItem> items;
+        qint64 cleanable = 0;
+        qint64 total = 1;  // Cargo.toml, a file at the top level
+        for (const QString &name :
+             QDir(m_dir->path()).entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+            const ScanResult r = Scanner::scanSubfolder(m_dir->path(), name, types);
+            QVERIFY(r.valid);
+            QVERIFY(r.error.isEmpty());
+            items += r.items;
+            cleanable += r.cleanableBytes;
+            total += r.totalBytes;
+        }
+        QCOMPARE(relativePaths(m_dir->path(), items), relativePaths(m_dir->path(), whole.items));
+        QCOMPARE(cleanable, whole.cleanableBytes);
+        QCOMPARE(total, whole.totalBytes);
+
+        const ScanResult target = Scanner::scanSubfolder(m_dir->path(), QStringLiteral("target"), types);
+        QCOMPARE(relativePaths(m_dir->path(), target.items), QStringList{QStringLiteral("target")});
+        QCOMPARE(target.cleanableBytes, 9);
+        // A subfolder that no rule matches, at any depth, has nothing to clean.
+        const ScanResult other = Scanner::scanSubfolder(path("rustproj"), QStringLiteral("src"), types);
+        QCOMPARE(other.cleanableBytes, 0);
+        QCOMPARE(other.totalBytes, 20);
+        QVERIFY(!Scanner::scanSubfolder(m_dir->path(), QStringLiteral("nope"), types).error.isEmpty());
+    }
+
     void markersUseWildcards()
     {
         CleanerType t;
