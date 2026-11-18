@@ -1,10 +1,13 @@
 #pragma once
 
+#include "SortOrder.h"
 #include "clean/Scanner.h"
 #include "model/Folder.h"
 
 #include <QMainWindow>
 #include <QUuid>
+
+#include <functional>
 
 class FolderListView;
 class FolderModel;
@@ -15,6 +18,7 @@ class QLabel;
 class QLineEdit;
 class SpinnerWidget;
 class QMenu;
+class QActionGroup;
 class QSplitter;
 class Store;
 class TrayIcon;
@@ -39,6 +43,10 @@ public:
                        const QStringList &excludes = {});
     // Shows the folder's group, if it is not shown, and selects the folder.
     void selectFolder(const QUuid &id);
+
+    // Orders the group list or the folder list, and remembers the choice.
+    void setGroupSort(SortOrder order);
+    void setFolderSort(SortOrder order);
 
     // Asks before deleting; tests turn the question off.
     void setConfirmCleaning(bool confirm) { m_confirmCleaning = confirm; }
@@ -84,6 +92,9 @@ private:
     void moveGroup(int delta);
     void moveFoldersToGroup(const QList<QUuid> &folderIds, const QUuid &groupId);
     void fillMoveMenu(QMenu *menu, const QUuid &folderId);
+    // Adds a submenu with a choice for each sort order.
+    QActionGroup *addSortMenu(QMenu *parent, const QString &title,
+                              const std::function<void(SortOrder)> &apply);
     void showGroupContextMenu(const QUuid &id, const QPoint &globalPos);
     void showItems();
     void openFolder(const QUuid &id);
@@ -119,4 +130,8 @@ private:
     QAction *m_cleanAllAction = nullptr;       // the selected groups
     QAction *m_cleanEverythingAction = nullptr;
     QMenu *m_moveMenu = nullptr;
+    QList<QAction *> m_folderMoveActions;  // Move up and down: manual order only
+    QList<QAction *> m_groupMoveActions;
+    QActionGroup *m_groupSortActions = nullptr;
+    QActionGroup *m_folderSortActions = nullptr;
 };

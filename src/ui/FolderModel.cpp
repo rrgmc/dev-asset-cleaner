@@ -13,9 +13,12 @@ FolderModel::FolderModel(Store *store, Monitor *monitor, QObject *parent)
 {
     connect(m_store, &Store::changed, this, &FolderModel::reload);
     connect(m_monitor, &Monitor::folderChanged, this, [this](const QUuid &id) {
+        if (rowOf(id) < 0)
+            return;
+        if (m_sortOrder == SortOrder::Cleanable)
+            resort();
         const int row = rowOf(id);
-        if (row >= 0)
-            emit dataChanged(index(row), index(row));
+        emit dataChanged(index(row), index(row));
     });
     reload();
 }
@@ -120,15 +123,51 @@ int FolderModel::rowOf(const QUuid &id) const
     return static_cast<int>(m_ids.indexOf(id));
 }
 
+void FolderModel::setSortOrder(SortOrder order)
+{
+    if (order == m_sortOrder)
+        return;
+    m_sortOrder = order;
+    resort();
+}
+
 void FolderModel::reload()
 {
     beginResetModel();
-    m_ids.clear();
+    m_manualIds.clear();
     for (const Folder &f : m_store->foldersIn(m_groupIds)) {
         if (m_filter.isEmpty() || f.name.contains(m_filter, Qt::CaseInsensitive)
             || QDir::toNativeSeparators(f.path).contains(m_filter, Qt::CaseInsensitive)
             || f.path.contains(m_filter, Qt::CaseInsensitive))
-            m_ids.append(f.id);
+            m_manualIds.append(f.id);
     }
+    m_ids = sortedIds();
     endResetModel();
+}
+
+QList<QUuid> FolderModel::sortedIds() const
+{
+    return Sorting::sorted(
+        m_manualIds, m_sortOrder,
+        [this](const QUuid &id) {
+            const Folder *f = m_store->folder(id);
+            return f ? f->name : QString();
+        },
+        [this](const QUuid &id) { return m_monitor->result(id).cleanableBytes; });
+}
+
+void FolderModel::resort()
+{
+    const QList<QUuid> ids = sortedIds();
+    if (ids == m_ids)
+        return;
+    emit layoutAboutToBeChanged();
+    const QModelIndexList before = persistentIndexList();
+    QModelIndexList after;
+    after.reserve(before.size());
+    for (const QModelIndex &i : before)
+        after.append(index(static_cast<int>(ids.indexOf(m_ids.value(i.row())))));
+    m_ids = ids;
+    changePersistentIndexList(before, after);
+    emit layoutChanged();
 }

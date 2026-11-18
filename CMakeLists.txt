@@ -63,6 +63,7 @@ qt_add_library(dac_ui STATIC
     src/ui/MainWindow.h src/ui/MainWindow.cpp
     src/ui/SettingsDialog.h src/ui/SettingsDialog.cpp
     src/ui/SizeSpinBox.h
+    src/ui/SortOrder.h src/ui/SortOrder.cpp
     src/ui/Spinner.h src/ui/Spinner.cpp
     src/ui/SubfolderDialog.h src/ui/SubfolderDialog.cpp
     src/ui/SubfolderModel.h src/ui/SubfolderModel.cpp
