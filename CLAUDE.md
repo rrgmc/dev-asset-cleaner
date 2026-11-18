@@ -80,9 +80,10 @@ keep fixes to those parts in step with it.
 - "Start when I sign in" lives in the OS, not in the JSON file: the per-user Run key on
   Windows (the same value the installer writes) and `SMAppService.mainApp` on macOS
   (`LoginItem`).
-- Dialogs run with `exec()` sit at AppKit's modal panel level, and Qt (6.8 to 6.10) does not lower them
-  when the app goes to the background, so they floated over other apps.
-  `MacApp::lowerModalWindowsWhenInactive` lowers them while another app is active.
+- Dialogs run with `exec()` sit at AppKit's modal panel level, above other apps and the
+  Screenshot controls, and Qt (6.8 to 6.10) leaves them there. `MacApp::attachModalDialogs`
+  keeps each modal dialog at the normal level and attaches it to its owner window as a child
+  window, as Mirante does, so it stays directly above that window.
 - Qt 6.8's macOS style drew no check boxes in item views on macOS 27 (not yet checked with Qt
   6.10). `ItemCheckStyle::apply`
   gives a view a style that paints them in code; use it on every view with checkable items.

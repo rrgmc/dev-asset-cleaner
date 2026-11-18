@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
         if (!window.isVisible())
             window.showAndFocus();
     });
-    MacApp::lowerModalWindowsWhenInactive();
+    MacApp::attachModalDialogs();
 #endif
 
     // Starting at sign-in keeps the app in the tray until it is called. Windows passes
