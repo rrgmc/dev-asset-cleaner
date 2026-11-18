@@ -75,6 +75,8 @@ private:
     void removeFolder();
     void rescanFolder();
     void cleanFolder(const QUuid &id);
+    // Opens SubfolderDialog for a Matching folder.
+    void cleanSubfolders(const QUuid &id);
     // Cleans the selected groups' folders, or every folder.
     void cleanAll(bool everything = false);
     void addGroup();
@@ -112,6 +114,7 @@ private:
     QList<QAction *> m_groupActions;   // need a selected group
     QList<QAction *> m_addActions;     // need a group to add to
     QAction *m_cleanAction = nullptr;
+    QAction *m_subfoldersAction = nullptr;  // Matching folders only
     QAction *m_cleanAllAction = nullptr;       // the selected groups
     QAction *m_cleanEverythingAction = nullptr;
     QMenu *m_moveMenu = nullptr;

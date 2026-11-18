@@ -57,7 +57,8 @@ work in the main checkout's working tree, which stays on `master`.
   and `Store::load` turns folders that used it, or had no types, into Whole folders. A new file starts with an empty
   "Default" group, which is not special: deleting every group is kept.
 - `src/clean`: `Scanner` (walks a folder, finds what its types match, deletes it; `detect`
-  reports per type what each rule-based type would delete, for `DetectDialog`),
+  reports per type what each rule-based type would delete, for `DetectDialog`;
+  `scanSubfolder` finds what `scan` would find in one first-level subfolder),
   `Monitor` (runs scans and cleans on a thread pool, keeps results, free space and warnings),
   `KnownCaches` (tool caches offered in the Add menu), `SystemFolders` (the OS's trash and
   cache folders that are safe to empty, offered by `SystemFoldersDialog`; keep browser caches
@@ -67,7 +68,11 @@ work in the main checkout's working tree, which stays on `master`.
   groups' folders and is painted by `FolderDelegate`. Folders are dragged onto a group with
   the `GroupListView::folderMimeType` drag, which `FolderListView::startDrag` starts itself
   so that a Move drop never removes model rows. "Clean all" and "Rescan all" act on the
-  selected groups; Tools has the commands for every group. `DetectDialog` runs `Scanner::detect` in the background and returns the
+  selected groups; Tools has the commands for every group. `FolderListView` derives from
+  `CleanableListView`, which handles the Clean buttons and spinners of any model that answers
+  `FolderModel`'s roles. `SubfolderDialog` (Folder > Clean subfolders, Matching folders only)
+  lists a folder's first-level subfolders through `SubfolderModel`, which scans and cleans each
+  one on its own thread pool, and asks `Monitor` to rescan the folder after each clean. `DetectDialog` runs `Scanner::detect` in the background and returns the
   chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
   `UsagePanel`, in the toolbar right of the buttons, paints the used and cleanable space of
   every folder, plus the selected groups' when they are not all of them.

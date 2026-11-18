@@ -1,5 +1,6 @@
 #include "clean/Monitor.h"
 #include "model/Store.h"
+#include "ui/CleanableListView.h"
 #include "ui/DetectDialog.h"
 #include "ui/FolderDelegate.h"
 #include "ui/FolderDialog.h"
@@ -8,6 +9,8 @@
 #include "ui/GroupListView.h"
 #include "ui/GroupModel.h"
 #include "ui/MainWindow.h"
+#include "ui/SubfolderDialog.h"
+#include "ui/SubfolderModel.h"
 #include "ui/SystemFoldersDialog.h"
 
 #include <QApplication>
@@ -111,6 +114,62 @@ private slots:
         QCOMPARE(m_monitor->result(projects).cleanableBytes, 0);
         QVERIFY(QFileInfo::exists(m_dir->filePath(QStringLiteral("projects/app/Cargo.toml"))));
         QVERIFY(QFileInfo::exists(m_dir->filePath(QStringLiteral("cache/blob"))));
+    }
+
+    void subfolderDialogCleansOneSubfolder()
+    {
+        writeFile(m_dir->filePath(QStringLiteral("projects/lib/Cargo.toml")), 10);
+        writeFile(m_dir->filePath(QStringLiteral("projects/lib/target/out")), 300);
+        writeFile(m_dir->filePath(QStringLiteral("projects/keep/Cargo.toml")), 10);
+        writeFile(m_dir->filePath(QStringLiteral("projects/keep/target/out")), 50);
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching,
+                                {QStringLiteral("rust")});
+        Folder f = m_store->folders().at(0);
+        QTRY_VERIFY(m_monitor->result(f.id).valid);
+        QTRY_COMPARE(m_monitor->state(f.id), Monitor::State::Idle);
+        f.excludes = {QStringLiteral("keep")};
+        m_store->updateFolder(f);
+        m_monitor->rescan(f.id);
+        QTRY_COMPARE(m_monitor->result(f.id).cleanableBytes, 4300);
+        QTRY_COMPARE(m_monitor->state(f.id), Monitor::State::Idle);
+
+        SubfolderDialog dialog(m_store.get(), m_monitor.get(), f.id, m_window.get());
+        dialog.setConfirmCleaning(false);
+        dialog.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+        SubfolderModel *model = dialog.model();
+        QCOMPARE(model->rowCount(), 3);
+        QTRY_VERIFY(!model->isBusy());
+        const int app = model->rowOf(QStringLiteral("app"));
+        const int keep = model->rowOf(QStringLiteral("keep"));
+        const int lib = model->rowOf(QStringLiteral("lib"));
+        QCOMPARE(model->resultAt(app).cleanableBytes, 4000);
+        QCOMPARE(model->resultAt(lib).cleanableBytes, 300);
+        // An excluded subfolder is sized but has nothing to clean.
+        QVERIFY(model->isExcluded(keep));
+        QCOMPARE(model->resultAt(keep).totalBytes, 60);
+        QCOMPARE(model->resultAt(keep).cleanableBytes, 0);
+        QVERIFY(!model->index(keep).data(FolderModel::CanCleanRole).toBool());
+
+        // Click lib's Clean button. The list is sorted by name: app, keep, lib.
+        auto *list = dialog.findChild<CleanableListView *>();
+        QVERIFY(list);
+        const QModelIndex row = list->model()->index(2, 0);
+        QCOMPARE(row.data().toString(), QStringLiteral("lib"));
+        const QRect button = FolderDelegate::buttonRect(list->visualRect(row), list->fontMetrics());
+        QTest::mouseClick(list->viewport(), Qt::LeftButton, {}, button.center());
+
+        QTRY_VERIFY(!QFileInfo::exists(m_dir->filePath(QStringLiteral("projects/lib/target"))));
+        QTRY_VERIFY(!model->isBusy());
+        QCOMPARE(model->resultAt(lib).cleanableBytes, 0);
+        QVERIFY(QFileInfo::exists(m_dir->filePath(QStringLiteral("projects/app/target/debug/app"))));
+        QVERIFY(QFileInfo::exists(m_dir->filePath(QStringLiteral("projects/keep/target/out"))));
+        // The folder's own scan follows.
+        QTRY_COMPARE(m_monitor->result(f.id).cleanableBytes, 4000);
+
+        // Excluded subfolders are never cleaned, even when asked directly.
+        model->clean(keep);
+        QVERIFY(!model->isBusy());
     }
 
     void cleanAllCleansEveryFolder()

@@ -45,6 +45,7 @@ endif()
 qt_add_library(dac_ui STATIC
     src/ui/AppInfo.h
     src/ui/DetectDialog.h src/ui/DetectDialog.cpp
+    src/ui/CleanableListView.h src/ui/CleanableListView.cpp
     src/ui/ExcludeDialog.h src/ui/ExcludeDialog.cpp
     src/ui/FolderDelegate.h src/ui/FolderDelegate.cpp
     src/ui/FolderDialog.h src/ui/FolderDialog.cpp
@@ -62,6 +63,8 @@ qt_add_library(dac_ui STATIC
     src/ui/SettingsDialog.h src/ui/SettingsDialog.cpp
     src/ui/SizeSpinBox.h
     src/ui/Spinner.h src/ui/Spinner.cpp
+    src/ui/SubfolderDialog.h src/ui/SubfolderDialog.cpp
+    src/ui/SubfolderModel.h src/ui/SubfolderModel.cpp
     src/ui/SystemFoldersDialog.h src/ui/SystemFoldersDialog.cpp
     src/ui/TrayIcon.h
     src/ui/TypesDialog.h src/ui/TypesDialog.cpp

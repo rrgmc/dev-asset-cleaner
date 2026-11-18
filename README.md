@@ -55,6 +55,12 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 
 Both kinds skip the folder's excluded subfolders. Pick the kind in the folder's settings.
 
+**Folder > Clean subfolders** opens a list of the first-level subfolders of a Matching folder,
+laid out like the main list. Each row shows what cleaning would free in that subfolder and has
+its own Clean button, so you can clean a folder of projects one project at a time. Sort the
+list by name, by space to clean or by size. Excluded subfolders are listed and sized, but
+cannot be cleaned.
+
 ## Cleaner types
 
 A cleaner type is a set of rules for a Matching folder. A rule has a folder name and, optionally, the names of files that must sit next to that folder.
@@ -109,6 +115,7 @@ the trash: cleaning is meant to free space, and it cannot be undone.
 | Ctrl+R | Rescan the selected folder |
 | Ctrl+Shift+R, F5 | Rescan all folders of the selected groups |
 | Ctrl+I | Show what cleaning the folder deletes |
+| Ctrl+U | Clean the subfolders of a Matching folder one at a time |
 | Ctrl+O | Open the folder in Explorer or Finder |
 | Ctrl+C | Copy the folder's path |
 | Ctrl+Shift+Up, Ctrl+Shift+Down | Move the folder up or down |
