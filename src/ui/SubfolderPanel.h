@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QDialog>
+#include <QWidget>
 #include <QUuid>
 
 class Monitor;
@@ -14,14 +14,15 @@ struct CleanResult;
 
 // Lists the first-level subfolders of a Matching folder as the main window lists folders, each
 // with what cleaning would free in it and a Clean button, so the user can clean the folder one
-// subfolder at a time. Asks Monitor to rescan the folder after each clean.
-class SubfolderDialog : public QDialog
+// subfolder at a time. Asks Monitor to rescan the folder after each clean. A tab of
+// CleanDetailsDialog.
+class SubfolderPanel : public QWidget
 {
     Q_OBJECT
 
 public:
-    SubfolderDialog(Store *store, Monitor *monitor, const QUuid &folderId,
-                    QWidget *parent = nullptr);
+    SubfolderPanel(Store *store, Monitor *monitor, const QUuid &folderId,
+                   QWidget *parent = nullptr);
 
     SubfolderModel *model() const { return m_model; }
     // Tests turn off the question before cleaning.

@@ -1,6 +1,7 @@
 #include "clean/Monitor.h"
 #include "model/Store.h"
 #include "ui/CleanChoice.h"
+#include "ui/CleanDetailsDialog.h"
 #include "ui/CleanableListView.h"
 #include "ui/DetectDialog.h"
 #include "ui/FolderDelegate.h"
@@ -11,8 +12,8 @@
 #include "ui/GroupListView.h"
 #include "ui/GroupModel.h"
 #include "ui/MainWindow.h"
-#include "ui/SubfolderDialog.h"
 #include "ui/SubfolderModel.h"
+#include "ui/SubfolderPanel.h"
 #include "ui/SystemFoldersDialog.h"
 
 #include <QAction>
@@ -27,10 +28,11 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QSettings>
+#include <QTabWidget>
 #include <QTemporaryDir>
 #include <QToolBar>
-#include <QTreeWidget>
 #include <QTest>
+#include <QTreeWidget>
 
 namespace {
 void writeFile(const QString &path, int bytes)
@@ -184,11 +186,24 @@ private slots:
         QTRY_COMPARE(m_monitor->result(f.id).cleanableBytes, 4300);
         QTRY_COMPARE(m_monitor->state(f.id), Monitor::State::Idle);
 
-        SubfolderDialog dialog(m_store.get(), m_monitor.get(), f.id, m_window.get());
+        // Opened on the Items tab, the dialog scans no subfolders until the other tab is shown.
+        {
+            CleanDetailsDialog items(m_store.get(), m_monitor.get(), f.id,
+                                     CleanDetailsDialog::Tab::Items, m_window.get());
+            QVERIFY(items.hasSubfolders());
+            QCOMPARE(items.tabs()->currentIndex(), 0);
+            QVERIFY(!items.findChild<SubfolderPanel *>());
+            items.tabs()->setCurrentIndex(1);
+            QVERIFY(items.findChild<SubfolderPanel *>());
+        }
+
+        CleanDetailsDialog dialog(m_store.get(), m_monitor.get(), f.id,
+                                  CleanDetailsDialog::Tab::Subfolders, m_window.get());
         dialog.setConfirmCleaning(false);
         dialog.show();
         QVERIFY(QTest::qWaitForWindowExposed(&dialog));
-        SubfolderModel *model = dialog.model();
+        QCOMPARE(dialog.tabs()->currentIndex(), 1);
+        SubfolderModel *model = dialog.subfolderPanel()->model();
         QCOMPARE(model->rowCount(), 3);
         QTRY_VERIFY(!model->isBusy());
         const int app = model->rowOf(QStringLiteral("app"));
@@ -202,10 +217,11 @@ private slots:
         QCOMPARE(model->resultAt(keep).cleanableBytes, 0);
         QVERIFY(!model->index(keep).data(FolderModel::CanCleanRole).toBool());
 
-        // Click lib's Clean button. The list is sorted by name: app, keep, lib.
+        // Click lib's Clean button. The list is sorted by space to clean: app, lib, keep.
         auto *list = dialog.findChild<CleanableListView *>();
         QVERIFY(list);
-        const QModelIndex row = list->model()->index(2, 0);
+        QCOMPARE(list->model()->index(0, 0).data().toString(), QStringLiteral("app"));
+        const QModelIndex row = list->model()->index(1, 0);
         QCOMPARE(row.data().toString(), QStringLiteral("lib"));
         const QRect button = FolderDelegate::buttonRect(list->visualRect(row), list->fontMetrics());
         QTest::mouseClick(list->viewport(), Qt::LeftButton, {}, button.center());
@@ -221,6 +237,24 @@ private slots:
         // Excluded subfolders are never cleaned, even when asked directly.
         model->clean(keep, CleanMethod::Delete);
         QVERIFY(!model->isBusy());
+
+        // The Items tab follows the folder's scans.
+        auto *tree = dialog.findChild<QTreeWidget *>();
+        QVERIFY(tree);
+        QTRY_COMPARE(tree->topLevelItemCount(), int(m_monitor->result(f.id).items.size()));
+
+        // A Whole folder has no Subfolders tab, whichever tab is asked for.
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole);
+        QUuid cache;
+        for (const Folder &other : m_store->folders()) {
+            if (other.kind == Folder::Kind::Whole)
+                cache = other.id;
+        }
+        CleanDetailsDialog whole(m_store.get(), m_monitor.get(), cache,
+                                 CleanDetailsDialog::Tab::Subfolders, m_window.get());
+        QVERIFY(!whole.hasSubfolders());
+        QCOMPARE(whole.tabs()->count(), 1);
+        QVERIFY(!whole.subfolderPanel());
     }
 
     void cleanAllCleansEveryFolder()

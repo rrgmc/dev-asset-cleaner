@@ -34,8 +34,8 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 - Each folder, of either kind, can **exclude** some of its first-level subfolders, such as a
   project you are working on. Cleaning never searches or deletes them. Set them in the folder's
   settings or with **Exclude** when adding matching folders.
-- The **Add** button also offers the tool caches it finds on this computer, such as the Go
-  module cache, the npm cache, Gradle's caches and Xcode's derived data.
+- The **Add** button also adds a group, and offers the tool caches it finds on this computer,
+  such as the Go module cache, the npm cache, Gradle's caches and Xcode's derived data.
 - **Add system folders** lists the operating system's trash and cache folders that are safe to
   empty: the Recycle Bin of each drive, Windows error reports, crash dumps and graphics shader
   caches on Windows; the Trash, the trash of other volumes and crash reports on macOS; the
@@ -68,11 +68,14 @@ click. It knows what programming tools leave behind, such as Rust's `target` fol
 Both kinds skip the folder's excluded subfolders. To change a folder's kind, remove it and add
 it again.
 
-**Folder > Clean subfolders**, or the **Clean subfolders** button in the box that confirms
-cleaning a Matching folder, opens a list of the first-level subfolders of a Matching folder,
-laid out like the main list. Each row shows what cleaning would free in that subfolder and has
-its own Clean button, so you can clean a folder of projects one project at a time. Sort the
-list by name or by space to clean. Excluded subfolders are listed, but cannot be cleaned.
+**Folder > Show what cleaning deletes** opens a window with two tabs. **Items** lists what the
+folder's last scan found to delete, largest first. **Subfolders**, only for a Matching folder,
+lists its first-level subfolders, laid out like the main list. **Folder > Clean subfolders**,
+or the **Clean subfolders** button in the box that confirms cleaning a Matching folder, opens
+the same window on the Subfolders tab. Each row shows what cleaning would free in that
+subfolder and has its own Clean button, so you can clean a folder of projects one project at a
+time. The list is sorted by space to clean, largest first, or by name. Excluded subfolders are
+listed, but cannot be cleaned.
 
 ## Cleaner types
 

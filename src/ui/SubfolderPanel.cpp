@@ -1,4 +1,4 @@
-#include "SubfolderDialog.h"
+#include "SubfolderPanel.h"
 
 #include "CleanChoice.h"
 #include "CleanableListView.h"
@@ -12,7 +12,6 @@
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QDesktopServices>
-#include <QDialogButtonBox>
 #include <QDir>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -34,7 +33,7 @@ constexpr int MaxFailuresShown = 20;
 class SubfolderListView : public CleanableListView
 {
 public:
-    SubfolderListView(QSortFilterProxyModel *proxy, SubfolderDialog *dialog)
+    SubfolderListView(QSortFilterProxyModel *proxy, SubfolderPanel *dialog)
         : CleanableListView(proxy, dialog)
         , m_proxy(proxy)
         , m_dialog(dialog)
@@ -82,12 +81,12 @@ protected:
 
 private:
     QSortFilterProxyModel *m_proxy;
-    SubfolderDialog *m_dialog;
+    SubfolderPanel *m_dialog;
 };
 
-SubfolderDialog::SubfolderDialog(Store *store, Monitor *monitor, const QUuid &folderId,
+SubfolderPanel::SubfolderPanel(Store *store, Monitor *monitor, const QUuid &folderId,
                                  QWidget *parent)
-    : QDialog(parent)
+    : QWidget(parent)
     , m_store(store)
     , m_monitor(monitor)
     , m_folderId(folderId)
@@ -97,10 +96,6 @@ SubfolderDialog::SubfolderDialog(Store *store, Monitor *monitor, const QUuid &fo
     , m_status(new QLabel(this))
 {
     const Folder *f = m_store->folder(folderId);
-    const QString name = f ? f->name : QString();
-    setWindowTitle(tr("Clean subfolders of %1").arg(name));
-    resize(640, 520);
-
     auto *hint = new QLabel(
         tr("The folders inside %1. Each Clean button deletes what the folder's types match in "
            "that subfolder only.")
@@ -123,6 +118,8 @@ SubfolderDialog::SubfolderDialog(Store *store, Monitor *monitor, const QUuid &fo
         m_proxy->setSortRole(role);
         m_proxy->sort(0, role == Qt::DisplayRole ? Qt::AscendingOrder : Qt::DescendingOrder);
     };
+    // Largest first by default, as the user usually wants the subfolders worth cleaning.
+    m_sort->setCurrentIndex(1);
     connect(m_sort, &QComboBox::currentIndexChanged, this, applySort);
     applySort();
     auto *sortLabel = new QLabel(tr("&Sort by:"), this);
@@ -133,30 +130,29 @@ SubfolderDialog::SubfolderDialog(Store *store, Monitor *monitor, const QUuid &fo
     top->addWidget(sortLabel);
     top->addWidget(m_sort);
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
-    QPushButton *rescan = buttons->addButton(tr("&Rescan"), QDialogButtonBox::ActionRole);
+    auto *rescan = new QPushButton(tr("&Rescan subfolders"), this);
+    rescan->setAutoDefault(false);
     connect(rescan, &QPushButton::clicked, this, [this] {
         m_message.clear();
         m_model->reload();
     });
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto *bottom = new QHBoxLayout;
     bottom->addWidget(m_status, 1);
-    bottom->addWidget(buttons);
+    bottom->addWidget(rescan);
 
     auto *layout = new QVBoxLayout(this);
     layout->addLayout(top);
     layout->addWidget(m_list, 1);
     layout->addLayout(bottom);
 
-    connect(m_model, &SubfolderModel::cleaned, this, &SubfolderDialog::onCleaned);
-    connect(m_model, &QAbstractItemModel::dataChanged, this, &SubfolderDialog::updateStatus);
-    connect(m_model, &QAbstractItemModel::modelReset, this, &SubfolderDialog::updateStatus);
+    connect(m_model, &SubfolderModel::cleaned, this, &SubfolderPanel::onCleaned);
+    connect(m_model, &QAbstractItemModel::dataChanged, this, &SubfolderPanel::updateStatus);
+    connect(m_model, &QAbstractItemModel::modelReset, this, &SubfolderPanel::updateStatus);
     updateStatus();
 }
 
-void SubfolderDialog::updateStatus()
+void SubfolderPanel::updateStatus()
 {
     if (m_model->rowCount() == 0) {
         m_status->setText(tr("The folder has no subfolders."));
@@ -176,7 +172,7 @@ void SubfolderDialog::updateStatus()
     m_status->setText(m_message.isEmpty() ? total : m_message + QLatin1Char(' ') + total);
 }
 
-void SubfolderDialog::cleanRow(int row)
+void SubfolderPanel::cleanRow(int row)
 {
     if (!m_model->index(row).data(FolderModel::CanCleanRole).toBool())
         return;
@@ -215,13 +211,13 @@ void SubfolderDialog::cleanRow(int row)
     m_model->clean(m_model->rowOf(name), method);
 }
 
-void SubfolderDialog::showItems(int row)
+void SubfolderPanel::showItems(int row)
 {
     if (row >= 0 && row < m_model->rowCount())
         ItemsDialog(m_model->nameAt(row), m_model->pathAt(row), m_model->resultAt(row), this).exec();
 }
 
-void SubfolderDialog::showContextMenu(int row, const QPoint &globalPos)
+void SubfolderPanel::showContextMenu(int row, const QPoint &globalPos)
 {
     const QModelIndex index = m_model->index(row);
     QMenu menu(this);
@@ -237,7 +233,7 @@ void SubfolderDialog::showContextMenu(int row, const QPoint &globalPos)
     menu.exec(globalPos);
 }
 
-void SubfolderDialog::onCleaned(const QString &name, const CleanResult &result)
+void SubfolderPanel::onCleaned(const QString &name, const CleanResult &result)
 {
     m_message = CleanChoice::doneMessage(result, name);
     updateStatus();
