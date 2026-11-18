@@ -55,8 +55,9 @@ made-up folders by the `make_screenshot` target. After changing the look of the 
 it with `cmake --build --preset macos --target make_screenshot`, then run
 `build/macos/bin/Release/make_screenshot docs/screenshot-macos.png`. On Windows, use the
 `windows` preset and `docs/screenshot.png`. On Windows the tool captures the window with
-`PrintWindow`. On macOS it uses `screencapture`, which needs the Screen Recording permission;
-without it, the picture has no title bar.
+`PrintWindow`. On macOS it uses ScreenCaptureKit, because `screencapture -l` no longer captures
+a single window on macOS 27. The app that runs the tool, such as the terminal, needs the Screen
+Recording permission; without it, the picture has no title bar.
 
 ## Tasks
 

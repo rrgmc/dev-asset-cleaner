@@ -6,7 +6,7 @@
 //   build/windows/bin/Release/make_screenshot docs/screenshot.png
 //
 // It captures the window with its title bar: through PrintWindow on Windows, and through
-// screencapture on macOS, where the terminal needs the Screen Recording permission. Without it,
+// ScreenCaptureKit on macOS, where the terminal needs the Screen Recording permission. Without it,
 // it saves the window's contents only, and says so.
 //
 // The data lives in a temporary file, so the real data is not touched.
@@ -23,8 +23,9 @@
 #include <QThread>
 
 #ifdef Q_OS_MACOS
+#include "WindowCapture_mac.h"
+
 #include <CoreGraphics/CoreGraphics.h>
-#include <QProcess>
 #include <unistd.h>
 #endif
 
@@ -119,7 +120,7 @@ void fill(Store &store, Monitor &monitor)
 }
 
 #ifdef Q_OS_MACOS
-// The number of this process's normal window, as screencapture -l wants it, or 0.
+// The window server number of this process's normal window, or 0.
 int windowNumber()
 {
     CFArrayRef list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID);
@@ -178,8 +179,8 @@ QImage windowImage(QWidget &window)
 #endif
 
 // Saves the window to out. grab() leaves out the title bar (and on macOS the toolbar background),
-// so on macOS the window server takes the picture instead (-o leaves out the shadow), and on
-// Windows PrintWindow does.
+// so on macOS ScreenCaptureKit takes the picture instead, without the shadow, and on Windows
+// PrintWindow does.
 bool capture(QWidget &window, const QString &out)
 {
 #ifdef Q_OS_WIN
@@ -190,13 +191,9 @@ bool capture(QWidget &window, const QString &out)
 #endif
 #ifdef Q_OS_MACOS
     const int number = windowNumber();
-    if (number != 0
-        && QProcess::execute(QStringLiteral("screencapture"),
-                             {QStringLiteral("-x"), QStringLiteral("-o"),
-                              QStringLiteral("-l%1").arg(number), out})
-               == 0)
+    if (number != 0 && captureWindowMac(static_cast<unsigned int>(number), out))
         return true;
-    std::fprintf(stderr, "screencapture failed (Screen Recording permission?); saving the "
+    std::fprintf(stderr, "window capture failed (Screen Recording permission?); saving the "
                          "window contents without the title bar\n");
 #endif
     return window.grab().save(out);

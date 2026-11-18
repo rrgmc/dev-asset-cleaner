@@ -149,8 +149,10 @@ work in the main checkout's working tree, which stays on `master`.
 - `docs/screenshot-macos.png` and `docs/screenshot.png` (Windows) are drawn with made-up data
   by the `make_screenshot` target, through `Monitor::setResultForDisplay` and
   `setVolumesForDisplay`. Each is made on its own platform. The tool captures the real window
-  with its title bar: with `PrintWindow` on Windows, and with `screencapture` on macOS, which
-  needs the Screen Recording permission.
+  with its title bar: with `PrintWindow` on Windows, and with ScreenCaptureKit on macOS
+  (`tools/WindowCapture_mac.mm`; `screencapture -l` fails on macOS 27), which needs the Screen
+  Recording permission. Claude Code's shell is refused that permission; run the tool from the
+  Terminal panel.
 - Qt 6.8 crashed on macOS 27 in two places, worked around as in favdir and kept with Qt 6.10.
   `TrayIcon` uses a native `NSStatusItem` instead of `QSystemTrayIcon` (fixed in Qt 6.12); its
   menu is rebuilt from the `QMenu` each time it opens. `Icons::toolIcon` draws the toolbar
