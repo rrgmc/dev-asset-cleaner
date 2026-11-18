@@ -50,7 +50,8 @@ NSWindow *nativeWindow(QWidget *widget)
     QWidget *top = widget ? widget->window() : nullptr;
     if (!top || !top->windowHandle())
         return nil;
-    auto *view = reinterpret_cast<NSView *>(top->winId());
+    // A bridged cast: ARC refuses to turn an integer into an object pointer directly.
+    auto *view = (__bridge NSView *)reinterpret_cast<void *>(top->winId());
     return view ? view.window : nil;
 }
 
