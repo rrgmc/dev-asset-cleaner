@@ -50,22 +50,20 @@ on **Cleaning deletes directly** in Settings.
 
 ### Recognised projects
 
-| Project | Deletes |
-|---|---|
-| Rust | `target` next to `Cargo.toml` |
-| C and C++ (CMake) | `build`, `build-*`, `cmake-build-*` and `out` next to `CMakeLists.txt` |
-| JavaScript and TypeScript | `node_modules`, `.next`, `.nuxt`, `.turbo`, `.parcel-cache` and `.svelte-kit` next to `package.json` |
-| Python | `__pycache__`, `.pytest_cache`, `.mypy_cache` and `.ruff_cache` anywhere; `.tox`, `.venv` and `venv` next to a Python project file |
-| Java and Kotlin (Gradle, Maven) | `build` and `.gradle` next to a Gradle build file; `target` next to `pom.xml` |
-| .NET | `bin` and `obj` next to a `.csproj`, `.fsproj` or `.vbproj` file |
-| Go | `bin` next to `go.mod` |
-| Swift | `.build` next to `Package.swift` |
-| Dart and Flutter | `build` and `.dart_tool` next to `pubspec.yaml` |
-| Zig | `.zig-cache`, `zig-cache` and `zig-out` next to `build.zig` |
-| Haskell | `.stack-work` next to `stack.yaml`; `dist-newstyle` next to a Cabal file |
+- Rust
+- C and C++ (CMake)
+- JavaScript and TypeScript
+- Python
+- Java and Kotlin (Gradle, Maven)
+- .NET
+- Go
+- Swift
+- Dart and Flutter
+- Zig
+- Haskell
 
-A folder is deleted only when the file next to it is there, so a `target` folder outside a
-Rust project is left alone. To add your own rules, open **Tools > Cleaner types**.
+Only build outputs and dependencies inside a project are deleted, so a `target` folder outside
+a Rust project is left alone. To add your own rules, open **Tools > Cleaner types**.
 
 ## More features
 
@@ -81,32 +79,6 @@ Rust project is left alone. To add your own rules, open **Tools > Cleaner types*
 - **Start when I sign in.** Turn it on in Settings (macOS 13 and later). The app then starts
   hidden in the tray.
 
-## Keyboard
-
-| Key | Effect |
-|---|---|
-| Type | Filter by name or path |
-| Enter | Edit the selected folder, or rename the selected group |
-| Ctrl+K | Clean the selected folder |
-| Ctrl+Shift+K | Clean all folders of the selected groups |
-| Ctrl+R | Rescan the selected folder |
-| Ctrl+Shift+R, F5 | Rescan all folders of the selected groups |
-| Ctrl+I | Show what cleaning the folder deletes |
-| Ctrl+U | Clean the subfolders of a Matching folder one at a time |
-| Ctrl+O | Open the folder in Explorer or Finder |
-| Ctrl+C | Copy the folder's path |
-| Ctrl+Shift+Up, Ctrl+Shift+Down | Move the folder up or down (manual order only) |
-| Ctrl+Alt+Up, Ctrl+Alt+Down | Move the group up or down (manual order only) |
-| Ctrl+N | Add a whole folder to the current group |
-| Ctrl+Shift+N | Add a group |
-| Ctrl+D | Add matching folders |
-| F2 | Edit the folder |
-| Delete | Stop watching the folder (nothing on disk is deleted) |
-| Esc | Clear the filter, or hide the window |
-
-On macOS, Ctrl in this table means ⌘. The Clean shortcuts always follow the **Cleaning deletes
-directly** setting, because Shift is part of Ctrl+Shift+K.
-
 ## Good to know
 
 - On macOS, reading the Trash needs Full Disk Access.
@@ -120,6 +92,10 @@ directly** setting, because Shift is part of Ctrl+Shift+K.
 ## Building from source
 
 See [BUILDING.md](BUILDING.md).
+
+## Author
+
+Rangel Reale (realerangel@gmail.com)
 
 ## License
 
