@@ -143,8 +143,11 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
         updateFolderActions();
     });
 
-    connect(m_list, &FolderListView::cleanRequested, this, &MainWindow::cleanFolder);
+    connect(m_list, &FolderListView::cleanRequested, this,
+            [this](const QUuid &id) { cleanFolder(id); });
     connect(m_list, &FolderListView::editRequested, this, &MainWindow::editFolder);
+    connect(m_list, &FolderListView::detailsRequested, this,
+            [this](const QUuid &id) { showCleanDetails(id, CleanDetailsDialog::Tab::Items); });
     connect(m_list, &FolderListView::folderContextMenu, this, &MainWindow::showContextMenu);
     connect(m_list, &FolderListView::currentFolderChanged, this, &MainWindow::updateFolderActions);
     connect(m_list, &FolderListView::filesDropped, this, [this](const QStringList &paths) {
@@ -1093,7 +1096,7 @@ void MainWindow::rescanFolder()
         m_monitor->rescan(id);
 }
 
-void MainWindow::cleanFolder(const QUuid &id)
+void MainWindow::cleanFolder(const QUuid &id, CleanDetailsDialog *from)
 {
     const Folder *f = m_store->folder(id);
     if (!f || m_monitor->state(id) != Monitor::State::Idle)
@@ -1115,8 +1118,9 @@ void MainWindow::cleanFolder(const QUuid &id)
                           .arg(what, Format::bytes(r.cleanableBytes))
                     : tr("Move %1, about %2, to the %3?")
                           .arg(what, Format::bytes(r.cleanableBytes), CleanChoice::trashName());
+        QWidget *owner = from ? static_cast<QWidget *>(from) : this;
         QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(f->name), question,
-                        QMessageBox::Cancel, this);
+                        QMessageBox::Cancel, owner);
         QPushButton *details = box.addButton(tr("Show items…"), QMessageBox::HelpRole);
         // A Matching folder can also be cleaned one subfolder at a time.
         QPushButton *subfolders =
@@ -1130,10 +1134,13 @@ void MainWindow::cleanFolder(const QUuid &id)
             box.exec();
             if (box.clickedButton() != details)
                 break;
-            ItemsDialog(f->name, f->path, r, this).exec();
+            ItemsDialog(f->name, f->path, r, owner).exec();
         }
         if (subfolders && box.clickedButton() == subfolders) {
-            showCleanDetails(id, CleanDetailsDialog::Tab::Subfolders);
+            if (from)
+                from->showTab(CleanDetailsDialog::Tab::Subfolders);
+            else
+                showCleanDetails(id, CleanDetailsDialog::Tab::Subfolders);
             return;
         }
         if (box.clickedButton() != ok)
@@ -1149,6 +1156,8 @@ void MainWindow::showCleanDetails(const QUuid &id, CleanDetailsDialog::Tab tab)
         return;
     CleanDetailsDialog dialog(m_store, m_monitor, id, tab, this);
     dialog.setConfirmCleaning(m_confirmCleaning);
+    connect(&dialog, &CleanDetailsDialog::cleanRequested, this,
+            [this, &dialog](const QUuid &folderId) { cleanFolder(folderId, &dialog); });
     dialog.exec();
 }
 

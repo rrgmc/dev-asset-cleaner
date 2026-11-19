@@ -5,6 +5,7 @@
 
 class ItemsView;
 class Monitor;
+class QPushButton;
 class QTabWidget;
 class Store;
 class SubfolderModel;
@@ -13,7 +14,9 @@ class SubfolderPanel;
 // Shows what cleaning a folder deletes, in two tabs: the items from the folder's last scan,
 // kept up to date as Monitor rescans it, and, for a Matching folder only, a SubfolderPanel to
 // clean it one subfolder at a time. The Subfolders tab scans the subfolders only once it is
-// first shown.
+// first shown. The Clean button asks the owner to clean the whole folder (cleanRequested); it
+// is enabled only while the folder is idle and its last scan has something to clean, and the
+// dialog stays open to show the rescanned result.
 class CleanDetailsDialog : public QDialog
 {
     Q_OBJECT
@@ -31,15 +34,24 @@ public:
     // Tests turn off the question before cleaning a subfolder.
     void setConfirmCleaning(bool confirm);
     QTabWidget *tabs() const { return m_tabs; }
+    QPushButton *cleanButton() const { return m_cleanButton; }
+    // Shows `tab`; the Subfolders tab only when the folder has one.
+    void showTab(Tab tab);
+
+signals:
+    // The Clean button was clicked.
+    void cleanRequested(const QUuid &id);
 
 private:
     void updateItems();
+    void updateCleanButton();
 
     Store *m_store;
     Monitor *m_monitor;
     QUuid m_folderId;
     QTabWidget *m_tabs;
     ItemsView *m_items;
+    QPushButton *m_cleanButton;
     QWidget *m_subfolderPage = nullptr;
     SubfolderPanel *m_subfolders = nullptr;
     bool m_confirmCleaning = true;

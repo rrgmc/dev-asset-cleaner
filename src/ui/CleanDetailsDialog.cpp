@@ -6,6 +6,7 @@
 #include "model/Store.h"
 
 #include <QDialogButtonBox>
+#include <QPushButton>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
@@ -17,6 +18,7 @@ CleanDetailsDialog::CleanDetailsDialog(Store *store, Monitor *monitor, const QUu
     , m_folderId(folderId)
     , m_tabs(new QTabWidget(this))
     , m_items(new ItemsView)
+    , m_cleanButton(new QPushButton(tr("&Clean…")))
 {
     const Folder *f = m_store->folder(folderId);
     setWindowTitle(tr("What cleaning %1 deletes").arg(f ? f->name : QString()));
@@ -38,20 +40,36 @@ CleanDetailsDialog::CleanDetailsDialog(Store *store, Monitor *monitor, const QUu
     }
 
     updateItems();
+    updateCleanButton();
     connect(m_monitor, &Monitor::folderChanged, this, [this](const QUuid &id) {
-        if (id == m_folderId)
-            updateItems();
+        if (id != m_folderId)
+            return;
+        updateItems();
+        updateCleanButton();
     });
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
+    buttons->addButton(m_cleanButton, QDialogButtonBox::ActionRole);
+    // Enter must not clean: Close stays the default button.
+    m_cleanButton->setAutoDefault(false);
+    buttons->button(QDialogButtonBox::Close)->setDefault(true);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(m_cleanButton, &QPushButton::clicked, this,
+            [this] { emit cleanRequested(m_folderId); });
 
     auto *layout = new QVBoxLayout(this);
     layout->addWidget(m_tabs, 1);
     layout->addWidget(buttons);
 
+    showTab(tab);
+}
+
+void CleanDetailsDialog::showTab(Tab tab)
+{
     if (tab == Tab::Subfolders && m_subfolderPage)
         m_tabs->setCurrentWidget(m_subfolderPage);
+    else if (tab == Tab::Items)
+        m_tabs->setCurrentIndex(0);
 }
 
 SubfolderPanel *CleanDetailsDialog::subfolderPanel()
@@ -77,4 +95,13 @@ void CleanDetailsDialog::updateItems()
     const Folder *f = m_store->folder(m_folderId);
     if (f)
         m_items->setResult(f->path, m_monitor->result(m_folderId));
+}
+
+void CleanDetailsDialog::updateCleanButton()
+{
+    // The same rule as the folder list's Clean button (FolderModel::CanCleanRole).
+    const ScanResult r = m_monitor->result(m_folderId);
+    m_cleanButton->setEnabled(m_store->folder(m_folderId)
+                              && m_monitor->state(m_folderId) == Monitor::State::Idle
+                              && r.valid && r.cleanableBytes > 0);
 }

@@ -33,6 +33,7 @@
 #include <QSettings>
 #include <QTabWidget>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QToolBar>
 #include <QTest>
 #include <QTreeWidget>
@@ -167,6 +168,56 @@ private slots:
         const QUuid projects = m_store->folders().at(0).id;
         QTRY_VERIFY(!QFileInfo::exists(m_dir->filePath(QStringLiteral("projects/app/target"))));
         QTRY_COMPARE(m_monitor->state(projects), Monitor::State::Idle);
+        QCOMPARE(m_monitor->result(projects).cleanableBytes, 0);
+        QVERIFY(QFileInfo::exists(m_dir->filePath(QStringLiteral("projects/app/Cargo.toml"))));
+        QVERIFY(QFileInfo::exists(m_dir->filePath(QStringLiteral("cache/blob"))));
+    }
+
+    void doubleClickShowsItemsAndCleans()
+    {
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching,
+                                {QStringLiteral("rust")});
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole);
+        QTRY_COMPARE(m_monitor->cleanableBytes(), 4700);
+        const QUuid projects = m_store->folders().at(0).id;
+        const QModelIndex first = m_list->folderModel()->index(0);
+        QTRY_VERIFY(first.data(FolderModel::CanCleanRole).toBool());
+
+        // The dialog runs with exec(): check it from inside its event loop, and always close it.
+        bool opened = false, itemsTab = false, enabledBefore = false, cleaned = false,
+             disabledAfter = false, stillOpen = false, itemsFollow = false;
+        QTimer::singleShot(0, this, [&] {
+            auto *dialog = qobject_cast<CleanDetailsDialog *>(QApplication::activeModalWidget());
+            if (!dialog)
+                return;
+            opened = true;
+            itemsTab = dialog->tabs()->currentIndex() == 0;
+            auto *tree = dialog->findChild<QTreeWidget *>();
+            enabledBefore = dialog->cleanButton()->isEnabled() && tree
+                            && tree->topLevelItemCount() > 0;
+            QTest::mouseClick(dialog->cleanButton(), Qt::LeftButton);
+            cleaned = QTest::qWaitFor([&] {
+                return !QFileInfo::exists(m_dir->filePath(QStringLiteral("projects/app/target")))
+                       && m_monitor->state(projects) == Monitor::State::Idle;
+            });
+            disabledAfter = !dialog->cleanButton()->isEnabled();
+            itemsFollow = tree && tree->topLevelItemCount() == 0;
+            stillOpen = dialog->isVisible();
+            dialog->reject();
+        });
+        // Double click the row away from its Clean button.
+        const QRect rect = m_list->visualRect(first);
+        QTest::mouseDClick(m_list->viewport(), Qt::LeftButton, {},
+                           QPoint(rect.left() + 10, rect.center().y()));
+
+        QVERIFY(opened);
+        QVERIFY(itemsTab);
+        QVERIFY(enabledBefore);
+        QVERIFY(cleaned);
+        // The dialog stays open and shows the rescan, with nothing left to clean.
+        QVERIFY(stillOpen);
+        QVERIFY(disabledAfter);
+        QVERIFY(itemsFollow);
         QCOMPARE(m_monitor->result(projects).cleanableBytes, 0);
         QVERIFY(QFileInfo::exists(m_dir->filePath(QStringLiteral("projects/app/Cargo.toml"))));
         QVERIFY(QFileInfo::exists(m_dir->filePath(QStringLiteral("cache/blob"))));

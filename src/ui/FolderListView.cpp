@@ -92,7 +92,7 @@ void FolderListView::buttonClicked(const QModelIndex &index)
 
 void FolderListView::rowDoubleClicked(const QModelIndex &index)
 {
-    emit editRequested(m_model->idAt(index.row()));
+    emit detailsRequested(m_model->idAt(index.row()));
 }
 
 void FolderListView::contextMenuEvent(QContextMenuEvent *event)
