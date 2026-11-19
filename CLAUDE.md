@@ -210,7 +210,9 @@ work in the main checkout's working tree, which stays on `master`.
   request runs are titled with the PR number. `release.yml` runs when a
   tag `vX.Y.Z` is pushed: it publishes the GitHub release (unless it exists), builds with that
   version (`-DDAC_VERSION`) and attaches the Windows setup and the macOS disk image. The tag
-  is the version; nothing in the tree is bumped for a release.
+  is the version; nothing in the tree is bumped for a release. Without `-DDAC_VERSION`,
+  `CMakeLists.txt` takes the newest `vX.Y.Z` tag reachable from HEAD (0.0.0 without git or
+  tags) and configures again when tags change. Help > About shows it.
 
 ## Public repository
 
