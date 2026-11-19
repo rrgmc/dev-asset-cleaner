@@ -198,13 +198,13 @@ MainWindow::MainWindow(Store *store, Monitor *monitor, QWidget *parent)
     // Groups on the left, the selected groups' folders on the right.
     auto *right = new QWidget(this);
     auto *layout = new QVBoxLayout(right);
+    // The filter sits above the folder list, not in the toolbar, which the usage panel fills.
 #ifdef Q_OS_MACOS
-    // The filter sits in the toolbar, as search fields do in Mac windows.
     layout->setContentsMargins(0, 10, 12, 12);
 #else
     layout->setContentsMargins(0, 8, 8, 0);
-    layout->addWidget(m_filter);
 #endif
+    layout->addWidget(m_filter);
     layout->setSpacing(6);
     layout->addWidget(m_list, 1);
 
@@ -455,12 +455,10 @@ void MainWindow::createActions()
     toolbar->addSeparator();
     addButton(m_cleanAllAction, tr("Clean the selected groups"));
     addButton(freeSpace, tr("Free space"));
-#ifndef Q_OS_MACOS
-    // The usage panel sits at the right edge; on macOS the filter field takes that place.
+    // The usage panel sits at the right edge.
     auto *usageSpacer = new QWidget(toolbar);
     usageSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     toolbar->addWidget(usageSpacer);
-#endif
     toolbar->addSeparator();
     m_usage = new UsagePanel(toolbar);
     toolbar->addWidget(m_usage);
@@ -495,17 +493,6 @@ void MainWindow::createActions()
 
 #ifdef Q_OS_MACOS
     setUnifiedTitleAndToolBarOnMac(true);
-    auto *spacer = new QWidget(toolbar);
-    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    toolbar->addWidget(spacer);
-    // Narrow enough to fit a narrow window: the toolbar hides what does not fit.
-    m_filter->setMinimumWidth(120);
-    m_filter->setMaximumWidth(240);
-    toolbar->addWidget(m_filter);
-    // Keeps the field's focus ring off the window edge.
-    auto *edge = new QWidget(toolbar);
-    edge->setFixedWidth(6);
-    toolbar->addWidget(edge);
 #endif
 }
 
