@@ -90,7 +90,9 @@ private:
     void editFolder(const QUuid &id);
     void removeFolder();
     void rescanFolder();
-    void cleanFolder(const QUuid &id);
+    // Asks, then cleans the folder. `from` is the CleanDetailsDialog that asked, if any: the
+    // question opens over it, and its Clean subfolders button switches its tab.
+    void cleanFolder(const QUuid &id, CleanDetailsDialog *from = nullptr);
     // Opens CleanDetailsDialog on `tab`; the Subfolders tab only for a Matching folder.
     void showCleanDetails(const QUuid &id, CleanDetailsDialog::Tab tab);
     // Cleans the selected groups' folders, or every folder.

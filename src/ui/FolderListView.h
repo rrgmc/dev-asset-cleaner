@@ -7,8 +7,8 @@
 
 class FolderModel;
 
-// The folder list. Clicking a row's Clean button asks to clean it, Enter or a double click
-// edits the folder, and typing goes to the filter. A row can be dragged onto a group, or, in
+// The folder list. Clicking a row's Clean button asks to clean it, a double click shows what
+// cleaning it deletes, Enter edits the folder, and typing goes to the filter. A row can be dragged onto a group, or, in
 // manual order, to another place among its group's folders.
 class FolderListView : public CleanableListView
 {
@@ -26,6 +26,7 @@ public:
 signals:
     void cleanRequested(const QUuid &id);
     void editRequested(const QUuid &id);
+    void detailsRequested(const QUuid &id);
     void typed(const QString &text);
     void currentFolderChanged(const QUuid &id);
     void folderContextMenu(const QUuid &id, const QPoint &globalPos);

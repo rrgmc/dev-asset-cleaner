@@ -82,9 +82,12 @@ work in the main checkout's working tree, which stays on `master`.
   selected groups; Tools has the commands for every group. `FolderListView` derives from
   `CleanableListView`, which handles the Clean buttons and spinners of any model that answers
   `FolderModel`'s roles. `CleanDetailsDialog` has two tabs: Items, an `ItemsView` of the
-  folder's last scan (Folder > Show what cleaning deletes), and Subfolders, a `SubfolderPanel`
-  (Folder > Clean subfolders, Matching folders only), made when the tab is first shown; each
-  menu opens its own tab. `SubfolderPanel`
+  folder's last scan (Folder > Show what cleaning deletes, or a double click on the folder's
+  row; Enter edits the folder), and Subfolders, a `SubfolderPanel` (Folder > Clean subfolders,
+  Matching folders only), made when the tab is first shown; each menu opens its own tab. Its
+  Clean button cleans the whole folder through `MainWindow::cleanFolder`, with the same
+  question and `CleanChoice::method`, and is enabled under the same rule as the row's button
+  (`CanCleanRole`). The dialog stays open and shows the rescan. `SubfolderPanel`
   lists a folder's first-level subfolders through `SubfolderModel`, which scans and cleans each
   one on its own thread pool, and asks `Monitor` to rescan the folder after each clean.
   `ItemsDialog` shows an `ItemsView` alone, for a subfolder or the confirmation box. `DetectDialog` runs `Scanner::detect` in the background and returns the
