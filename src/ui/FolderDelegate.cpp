@@ -17,6 +17,7 @@ constexpr int ButtonHPadding = 10;
 constexpr int ButtonVPadding = 3;
 constexpr int ButtonRadius = 4;
 constexpr int SizeColumnWidthChars = 18;
+constexpr int TagHPadding = 6;
 
 QColor blend(const QColor &a, const QColor &b, qreal t)
 {
@@ -30,6 +31,11 @@ const QColor WarningColor(0xD9, 0x48, 0x0F);
 QString FolderDelegate::buttonLabel()
 {
     return tr("Clean");
+}
+
+QString FolderDelegate::outOfWarningsLabel()
+{
+    return tr("not in warnings");
 }
 
 QRect FolderDelegate::buttonRect(const QRect &rect, const QFontMetrics &fm)
@@ -102,7 +108,28 @@ void FolderDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option
     painter->drawText(QRect(textLeft, line1, textWidth, boldFm.height()),
                       Qt::AlignLeft | Qt::AlignVCenter, name);
     const int nameWidth = boldFm.horizontalAdvance(name);
-    const int typesLeft = textLeft + nameWidth + fm.averageCharWidth() * 2;
+    int typesLeft = textLeft + nameWidth + fm.averageCharWidth() * 2;
+    // A tag after the name of a folder that does not count in the warnings.
+    if (index.data(FolderModel::OutOfWarningsRole).toBool()) {
+        QFont tagFont = opt.font;
+        tagFont.setPointSizeF(tagFont.pointSizeF() * 0.85);
+        const QFontMetrics tagFm(tagFont);
+        const QString tag = outOfWarningsLabel();
+        const int tagWidth = tagFm.horizontalAdvance(tag) + 2 * TagHPadding;
+        const int tagHeight = tagFm.height() + 2;
+        const int tagLeft = textLeft + nameWidth + fm.averageCharWidth();
+        if (tagLeft + tagWidth <= textLeft + textWidth) {
+            const QRectF tagRect(tagLeft + 0.5, line1 + (boldFm.height() - tagHeight) / 2.0 + 0.5,
+                                 tagWidth - 1, tagHeight - 1);
+            painter->setPen(blend(dim, background, 0.3));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRoundedRect(tagRect, tagHeight / 2.0, tagHeight / 2.0);
+            painter->setFont(tagFont);
+            painter->setPen(dim);
+            painter->drawText(tagRect, Qt::AlignCenter, tag);
+            typesLeft = tagLeft + tagWidth + fm.averageCharWidth() * 2;
+        }
+    }
     const int typesWidth = textLeft + textWidth - typesLeft;
     if (typesWidth > fm.averageCharWidth() * 4) {
         painter->setFont(opt.font);

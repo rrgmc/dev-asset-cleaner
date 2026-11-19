@@ -143,6 +143,7 @@ private slots:
         f.typeIds = {QStringLiteral("rust"), QStringLiteral("custom-1")};
         f.warnBytes = 5'000'000'000LL;
         f.excludes = {QStringLiteral("keep"), QStringLiteral("work in progress")};
+        f.inWarnings = false;
 
         Settings settings;
         settings.closeToTray = false;
@@ -187,6 +188,8 @@ private slots:
         QCOMPARE(g.typeIds, f.typeIds);
         QCOMPARE(g.warnBytes, f.warnBytes);
         QCOMPARE(g.excludes, f.excludes);
+        QCOMPARE(g.inWarnings, false);
+        QVERIFY(loaded.foldersIn({loaded.groups().at(0).id}).first().inWarnings);
         QVERIFY(loaded.foldersIn({loaded.groups().at(0).id}).first().excludes.isEmpty());
         QCOMPARE(loaded.customTypes().size(), 1);
         QCOMPARE(loaded.customTypes().first(), custom);

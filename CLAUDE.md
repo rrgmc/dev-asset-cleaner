@@ -102,18 +102,22 @@ work in the main checkout's working tree, which stays on `master`.
   toolbar's two sort buttons open the same submenus; their icons are drawn in code on every
   platform (`Icons::sortGroupsIcon`, `sortFoldersIcon`).
   `UsagePanel`, in the toolbar right of the buttons, paints the space to clean in every
-  folder, plus in the selected groups when they are not all of them. `FreeSpaceDialog` (the Free space
+  folder, plus in the folders in the warnings when that differs, and in the selected groups
+  when they are not all of them. `FreeSpaceDialog` (the Free space
   button) lists every disk that holds a monitored folder, with a check box that takes the disk
   out of the free space warning (`Settings::freeAlertOffDisks`); the status bar shows only the
   disks at a warning level, in the most serious level's colour. The UI shows only the
   space to clean, never a folder's total size; the warning limits (`Folder::warnBytes`,
   `Settings::cleanAlert`) also measure the space to clean.
-- Warnings: `Settings::cleanAlert` (space to clean in all folders) and `freeAlert` (free space
+- Warnings: `Settings::cleanAlert` (space to clean in the folders in the warnings) and `freeAlert` (free space
   per disk) are each an `Alert` (`src/model/Alert.h`): three limits for the levels Low, Medium
   and High (0 turns a level off) and the level from which the tray notifies. Clean levels
   grow, free space levels shrink; `SettingsDialog` refuses levels out of order.
   `Monitor::warnings` gives each warning's level; a folder over its own `warnBytes` makes the
-  clean level at least Low. The tray icon shows the clean level as a circle at the bottom left
+  clean level at least Low. A folder with `Folder::inWarnings` off (a check box in
+  `FolderDialog`, on by default) counts in neither: `Monitor::warningCleanableBytes` leaves
+  it out, the folder list tags its row "not in warnings" (`OutOfWarningsRole`) and does not
+  colour it for its own limit. The tray icon shows the clean level as a circle at the bottom left
   and the free level as a triangle at the bottom right, in `Icons::severityColor`.
   `MainWindow::warningReasons` says why, one line per low disk, the total and each large
   folder; the tray menu lists them at its top and the tooltip repeats them. A

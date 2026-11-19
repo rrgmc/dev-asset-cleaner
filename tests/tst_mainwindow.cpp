@@ -9,6 +9,7 @@
 #include "ui/FolderDialog.h"
 #include "ui/FolderListView.h"
 #include "ui/FolderModel.h"
+#include "ui/UsagePanel.h"
 #include "ui/Format.h"
 #include "ui/FreeSpaceDialog.h"
 #include "ui/GroupListView.h"
@@ -770,6 +771,44 @@ private slots:
         m_store->updateFolder(f);
         QTRY_VERIFY(m_monitor->result(f.id).valid);
         QCOMPARE(m_monitor->warnings().cleanLevel, Severity::Low);
+    }
+
+    void foldersOutOfTheWarningsDoNotCount()
+    {
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("projects")), Folder::Kind::Matching,
+                                {QStringLiteral("rust")});
+        m_window->addFolderPath(m_dir->filePath(QStringLiteral("cache")), Folder::Kind::Whole);
+        QTRY_COMPARE(m_monitor->cleanableBytes(), 4700);
+        auto *usage = m_window->findChild<UsagePanel *>();
+        QVERIFY(usage);
+        QCOMPARE(m_monitor->warningCleanableBytes(), 4700);
+        QVERIFY(!usage->captions().contains(QStringLiteral("In warnings")));
+
+        Settings s = m_store->settings();
+        s.cleanAlert = Alert{{1000, 0, 0}, Severity::Low};
+        m_store->setSettings(s);
+        QCOMPARE(m_monitor->warnings().cleanLevel, Severity::Low);
+
+        // Taking the projects out leaves 700 bytes in the warnings, below Low, and its own
+        // limit no longer warns either.
+        Folder f = m_store->folders().first();
+        f.inWarnings = false;
+        f.warnBytes = 100;
+        m_store->updateFolder(f);
+        QTRY_VERIFY(m_monitor->result(f.id).valid);
+        QTRY_COMPARE(m_monitor->cleanableBytes(), 4700);
+        QCOMPARE(m_monitor->warningCleanableBytes(), 700);
+        QCOMPARE(m_monitor->warnings().cleanLevel, Severity::None);
+        QVERIFY(m_monitor->warnings().largeFolders.isEmpty());
+        QVERIFY(m_window->warningReasons().isEmpty());
+
+        // The toolbar shows the third value, and the folder list tags the row.
+        QTRY_VERIFY(usage->captions().contains(QStringLiteral("In warnings")));
+        auto *folders = qobject_cast<FolderModel *>(m_list->model());
+        QVERIFY(folders);
+        const QModelIndex row = folders->index(folders->rowOf(f.id), 0);
+        QVERIFY(row.data(FolderModel::OutOfWarningsRole).toBool());
+        QVERIFY(!row.data(FolderModel::WarningRole).toBool());
     }
 
     void warningReasonsSayWhyTheTrayWarns()

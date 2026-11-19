@@ -24,9 +24,10 @@ public:
         CleanableRole,    // qint64
         ScannedRole,      // bool: a scan has finished
         BusyRole,         // bool: scanning or cleaning
-        WarningRole,      // bool: more to clean than its warning size, or the scan failed
+        WarningRole,      // bool: in the warnings and over its warning size, or the scan failed
         CanCleanRole,     // bool
         GroupRole,        // the group's name
+        OutOfWarningsRole, // bool: the folder does not count in the warnings (Folder::inWarnings)
     };
 
     FolderModel(Store *store, Monitor *monitor, QObject *parent = nullptr);

@@ -44,8 +44,11 @@ QVariant FolderModel::data(const QModelIndex &index, int role) const
         return f->name;
     case Qt::ToolTipRole: {
         const Group *g = m_store->group(f->groupId);
-        return QStringLiteral("%1\n%2").arg(QDir::toNativeSeparators(f->path),
-                                             tr("Group: %1").arg(g ? g->name : QString()));
+        QString tip = QStringLiteral("%1\n%2").arg(QDir::toNativeSeparators(f->path),
+                                                   tr("Group: %1").arg(g ? g->name : QString()));
+        if (!f->inWarnings)
+            tip += QLatin1Char('\n') + tr("Not counted in the warnings");
+        return tip;
     }
     case GroupRole: {
         const Group *g = m_store->group(f->groupId);
@@ -80,9 +83,12 @@ QVariant FolderModel::data(const QModelIndex &index, int role) const
     case BusyRole:
         return state != Monitor::State::Idle;
     case WarningRole:
-        return !result.error.isEmpty() || (f->warnBytes > 0 && result.cleanableBytes > f->warnBytes);
+        return !result.error.isEmpty()
+               || (f->inWarnings && f->warnBytes > 0 && result.cleanableBytes > f->warnBytes);
     case CanCleanRole:
         return state == Monitor::State::Idle && result.valid && result.cleanableBytes > 0;
+    case OutOfWarningsRole:
+        return !f->inWarnings;
     default:
         return {};
     }

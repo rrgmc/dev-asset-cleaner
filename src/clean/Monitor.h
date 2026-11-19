@@ -33,9 +33,9 @@ struct Volume
 struct Warnings
 {
     QList<Volume> lowVolumes;   // the disks with a free space level
-    QList<QUuid> largeFolders;  // more to clean than their own warning size
-    // The space to clean in all folders against the settings' levels. A folder over its own
-    // limit makes it at least Low.
+    QList<QUuid> largeFolders;  // in the warnings, with more to clean than their own limit
+    // The space to clean in the folders in the warnings (warningCleanableBytes) against the
+    // settings' levels. A folder over its own limit makes it at least Low.
     Severity cleanLevel = Severity::None;
     // The most serious level of the disks.
     Severity freeLevel = Severity::None;
@@ -75,6 +75,8 @@ public:
     qint64 cleanableBytes() const;
     // The same over the folders of these groups.
     qint64 groupCleanableBytes(const QList<QUuid> &groupIds) const;
+    // The same over the folders that count in the warnings (Folder::inWarnings).
+    qint64 warningCleanableBytes() const;
 
     QList<Volume> volumes() const;
     Warnings warnings() const;

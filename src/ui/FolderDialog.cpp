@@ -5,6 +5,7 @@
 #include "SizeSpinBox.h"
 #include "model/Store.h"
 
+#include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
@@ -28,6 +29,7 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     , m_path(new QLineEdit(QDir::toNativeSeparators(folder.path), this))
     , m_excludes(new QLabel(ExcludeDialog::summary(folder.excludes), this))
     , m_warn(new SizeSpinBox(this))
+    , m_inWarnings(new QCheckBox(tr("&Include this folder in the warnings"), this))
 {
     setWindowTitle(tr("Folder"));
     resize(520, folder.kind == Folder::Kind::Matching ? 580 : 320);
@@ -56,6 +58,10 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     }
 
     m_warn->setBytes(folder.warnBytes);
+    m_inWarnings->setChecked(folder.inWarnings);
+    m_inWarnings->setToolTip(
+        tr("Whether this folder's space to clean, and its own warning size, can make the tray "
+           "icon warn and notify."));
 
     m_excludes->setWordWrap(true);
     m_excludes->setTextFormat(Qt::PlainText);
@@ -84,6 +90,7 @@ FolderDialog::FolderDialog(Store *store, const Folder &folder, QWidget *parent)
     form->addRow(excludeLabel, excludeRow);
     form->addRow(QString(), excludeHint);
     form->addRow(tr("&Warn above, to clean:"), m_warn);
+    form->addRow(QString(), m_inWarnings);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     m_ok = buttons->button(QDialogButtonBox::Ok);
@@ -113,6 +120,7 @@ Folder FolderDialog::folder() const
         }
     }
     f.warnBytes = m_warn->bytes();
+    f.inWarnings = m_inWarnings->isChecked();
     return f;
 }
 

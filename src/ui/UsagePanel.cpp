@@ -40,13 +40,17 @@ UsagePanel::UsagePanel(QWidget *parent)
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
 
-void UsagePanel::setUsage(qint64 allBytes, qint64 selectionBytes, bool showSelection)
+void UsagePanel::setUsage(qint64 allBytes, qint64 selectionBytes, bool showSelection,
+                          qint64 warningBytes)
 {
     m_all = allBytes;
     m_selection = selectionBytes;
     m_showSelection = showSelection;
+    m_warning = warningBytes;
 
     QString tip = tr("All folders: %1").arg(cleanableText(allBytes));
+    if (warningBytes != allBytes)
+        tip += QLatin1Char('\n') + tr("Folders in the warnings: %1").arg(cleanableText(warningBytes));
     if (showSelection)
         tip += QLatin1Char('\n') + tr("Selected groups: %1").arg(cleanableText(selectionBytes));
     setToolTip(tip);
@@ -73,8 +77,18 @@ QFont UsagePanel::smallFont() const
 QList<UsagePanel::Column> UsagePanel::columns() const
 {
     QList<Column> list{{tr("All folders"), m_all}};
+    if (m_warning != m_all)
+        list.append({tr("In warnings"), m_warning});
     if (m_showSelection)
         list.append({tr("Selected"), m_selection});
+    return list;
+}
+
+QStringList UsagePanel::captions() const
+{
+    QStringList list;
+    for (const Column &c : columns())
+        list.append(c.caption);
     return list;
 }
 
