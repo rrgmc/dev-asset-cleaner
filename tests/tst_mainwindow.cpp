@@ -842,11 +842,12 @@ private slots:
         QTRY_VERIFY(m_monitor->result(f.id).valid);
         QCOMPARE(m_window->warningReasons(),
                  (QStringList{
-                     QStringLiteral("Free space on Disk R is below %1 (Low).")
-                         .arg(Format::bytes(5'000'000'000LL)),
-                     QStringLiteral("The folders have more than %1 to clean (Medium).")
-                         .arg(Format::bytes(3000)),
-                     QStringLiteral("%1 has more than %2 to clean.").arg(f.name, Format::bytes(100)),
+                     QStringLiteral("Free space on Disk R is %1, below %2 (Low).")
+                         .arg(Format::bytes(2'000'000'000LL), Format::bytes(5'000'000'000LL)),
+                     QStringLiteral("The folders have %1 to clean, more than %2 (Medium).")
+                         .arg(Format::bytes(4000), Format::bytes(3000)),
+                     QStringLiteral("%1 has %2 to clean, more than %3.")
+                         .arg(f.name, Format::bytes(4000), Format::bytes(100)),
                  }));
 
         // A disk left out of the free space warning gives no reason.

@@ -730,19 +730,22 @@ QStringList MainWindow::warningReasons() const
     };
     QStringList reasons;
     for (const Volume &v : warnings.lowVolumes) {
-        reasons.append(tr("Free space on %1 is below %2 (%3).")
-                           .arg(v.name, limit(settings.freeAlert, v.level), severityName(v.level)));
+        reasons.append(tr("Free space on %1 is %2, below %3 (%4).")
+                           .arg(v.name, Format::bytes(v.freeBytes),
+                                limit(settings.freeAlert, v.level), severityName(v.level)));
     }
     const Severity totalLevel =
         settings.cleanAlert.levelFor(m_monitor->warningCleanableBytes(), Alert::Direction::Above);
     if (totalLevel != Severity::None) {
-        reasons.append(tr("The folders have more than %1 to clean (%2).")
-                           .arg(limit(settings.cleanAlert, totalLevel), severityName(totalLevel)));
+        reasons.append(tr("The folders have %1 to clean, more than %2 (%3).")
+                           .arg(Format::bytes(m_monitor->warningCleanableBytes()),
+                                limit(settings.cleanAlert, totalLevel), severityName(totalLevel)));
     }
     for (const QUuid &id : warnings.largeFolders) {
         if (const Folder *f = m_store->folder(id))
-            reasons.append(
-                tr("%1 has more than %2 to clean.").arg(f->name, Format::bytes(f->warnBytes)));
+            reasons.append(tr("%1 has %2 to clean, more than %3.")
+                               .arg(f->name, Format::bytes(m_monitor->result(id).cleanableBytes),
+                                    Format::bytes(f->warnBytes)));
     }
     return reasons;
 }
