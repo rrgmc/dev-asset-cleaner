@@ -1,8 +1,43 @@
 cmake_minimum_required(VERSION 3.25)
 
-# Release builds pass the tag's version, for example -DDAC_VERSION=1.2.0.
-set(DAC_VERSION "1.0.0" CACHE STRING "dev-asset-cleaner version (major.minor.patch)")
-project(dev-asset-cleaner VERSION ${DAC_VERSION} LANGUAGES CXX)
+# Release builds pass the tag's version, for example -DDAC_VERSION=1.2.0. Without it, the version
+# is the newest vX.Y.Z tag reachable from HEAD, or 0.0.0 when git or the tags are missing. CMake
+# configures again when a tag is added, so the version follows the tags.
+set(DAC_VERSION "" CACHE STRING "dev-asset-cleaner version (major.minor.patch); empty takes it from git")
+set(dac_version "${DAC_VERSION}")
+if(dac_version STREQUAL "")
+    set(dac_version "0.0.0")
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" describe --tags --abbrev=0 --match "v[0-9]*.[0-9]*.[0-9]*"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            OUTPUT_VARIABLE dac_git_tag OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE dac_git_result ERROR_QUIET)
+        if(dac_git_result EQUAL 0 AND dac_git_tag MATCHES "^v([0-9]+\\.[0-9]+\\.[0-9]+)$")
+            set(dac_version "${CMAKE_MATCH_1}")
+        endif()
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" rev-parse --path-format=absolute --git-dir --git-common-dir
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            OUTPUT_VARIABLE dac_git_dirs OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE dac_git_result ERROR_QUIET)
+        if(dac_git_result EQUAL 0)
+            # HEAD moves on a checkout; refs/tags and packed-refs change when tags are added.
+            string(REPLACE "\n" ";" dac_git_dirs "${dac_git_dirs}")
+            list(GET dac_git_dirs 0 dac_git_dir)
+            list(GET dac_git_dirs 1 dac_git_common_dir)
+            foreach(dac_git_file "${dac_git_dir}/HEAD" "${dac_git_common_dir}/refs/tags"
+                                 "${dac_git_common_dir}/packed-refs")
+                if(EXISTS "${dac_git_file}")
+                    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${dac_git_file}")
+                endif()
+            endforeach()
+        endif()
+    endif()
+endif()
+project(dev-asset-cleaner VERSION ${dac_version} LANGUAGES CXX)
+message(STATUS "dev-asset-cleaner version ${PROJECT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
