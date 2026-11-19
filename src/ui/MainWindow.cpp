@@ -561,6 +561,7 @@ void MainWindow::updateSummary()
     }
     const QList<QUuid> groups = selectedGroups();
     const qint64 groupCleanable = m_monitor->groupCleanableBytes(groups);
+    const qint64 warningCleanable = m_monitor->warningCleanableBytes();
     QString text;
     if (m_store->groups().size() > 1 && !groups.isEmpty()) {
         text = tr("Selected: %1 to clean   ·   All: %2 to clean")
@@ -568,6 +569,8 @@ void MainWindow::updateSummary()
     } else {
         text = tr("Folders: %1 to clean").arg(Format::bytes(m_monitor->cleanableBytes()));
     }
+    if (warningCleanable != m_monitor->cleanableBytes())
+        text += tr("   ·   In warnings: %1").arg(Format::bytes(warningCleanable));
     m_summary->setText(text);
     m_lowSpace->setText(warningMark() + low.join(QStringLiteral(", ")));
     m_lowSpace->setVisible(!low.isEmpty());
@@ -575,7 +578,8 @@ void MainWindow::updateSummary()
     if (m_usage) {
         // The selection is worth its own column only when it is not every group.
         const bool partial = !groups.isEmpty() && groups.size() < m_store->groups().size();
-        m_usage->setUsage(m_monitor->cleanableBytes(), groupCleanable, partial);
+        m_usage->setUsage(m_monitor->cleanableBytes(), groupCleanable, partial,
+                          warningCleanable, m_monitor->warnings().cleanLevel);
     }
     m_cleanAllAction->setEnabled(groupCleanable > 0);
     m_cleanEverythingAction->setEnabled(m_monitor->cleanableBytes() > 0);
@@ -660,6 +664,10 @@ void MainWindow::updateTray()
         m_trayMenu->addSeparator();
     QStringList tipLines{AppInfo::displayName()};
     tipLines.append(tr("Folders: %1 to clean").arg(Format::bytes(m_monitor->cleanableBytes())));
+    if (m_monitor->warningCleanableBytes() != m_monitor->cleanableBytes()) {
+        tipLines.append(tr("In warnings: %1 to clean")
+                            .arg(Format::bytes(m_monitor->warningCleanableBytes())));
+    }
     for (const Volume &v : m_monitor->volumes()) {
         const QString line = tr("%1%2 free of %3 on %4")
                                  .arg(v.low() ? warningMark() : QString(), Format::bytes(v.freeBytes),
@@ -704,7 +712,7 @@ void MainWindow::updateTray()
     }
     if (rises(warnings.cleanLevel, m_lastCleanLevel, settings.cleanAlert.notifyFrom)) {
         notes.append(tr("%1 can be cleaned in the monitored folders (%2).")
-                         .arg(Format::bytes(m_monitor->cleanableBytes()),
+                         .arg(Format::bytes(m_monitor->warningCleanableBytes()),
                               severityName(warnings.cleanLevel)));
     }
     m_lastFreeLevel = warnings.freeLevel;
@@ -726,7 +734,7 @@ QStringList MainWindow::warningReasons() const
                            .arg(v.name, limit(settings.freeAlert, v.level), severityName(v.level)));
     }
     const Severity totalLevel =
-        settings.cleanAlert.levelFor(m_monitor->cleanableBytes(), Alert::Direction::Above);
+        settings.cleanAlert.levelFor(m_monitor->warningCleanableBytes(), Alert::Direction::Above);
     if (totalLevel != Severity::None) {
         reasons.append(tr("The folders have more than %1 to clean (%2).")
                            .arg(limit(settings.cleanAlert, totalLevel), severityName(totalLevel)));
@@ -1121,7 +1129,10 @@ void MainWindow::cleanFolder(const QUuid &id, CleanDetailsDialog *from)
         QWidget *owner = from ? static_cast<QWidget *>(from) : this;
         QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(f->name), question,
                         QMessageBox::Cancel, owner);
-        QPushButton *details = box.addButton(tr("Show items…"), QMessageBox::HelpRole);
+        // A Whole folder's question already says what goes; its items can be thousands.
+        QPushButton *details = f->kind == Folder::Kind::Matching
+                                   ? box.addButton(tr("Show items…"), QMessageBox::HelpRole)
+                                   : nullptr;
         // A Matching folder can also be cleaned one subfolder at a time.
         QPushButton *subfolders =
             f->kind == Folder::Kind::Matching
@@ -1132,7 +1143,7 @@ void MainWindow::cleanFolder(const QUuid &id, CleanDetailsDialog *from)
         // The Show items button would close the box; reopen it afterwards.
         for (;;) {
             box.exec();
-            if (box.clickedButton() != details)
+            if (!details || box.clickedButton() != details)
                 break;
             ItemsDialog(f->name, f->path, r, owner).exec();
         }

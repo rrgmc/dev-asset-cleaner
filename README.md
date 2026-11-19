@@ -70,8 +70,9 @@ a Rust project is left alone. To add your own rules, open **Tools > Cleaner type
 - **Groups.** Sort your folders into groups, shown on the left. Drag a folder onto a group to
   move it. Select several groups to see and clean their folders together.
 - **See what goes.** Double-click a folder, or choose **Folder > Show what cleaning deletes**,
-  to list the items from its last scan. The window's **Clean** button cleans the folder and
-  then shows what is left.
+  to list the items from its last scan. For a folder that is emptied whole, it shows only the
+  space and the number of items. The window's **Clean** button cleans the folder and then shows
+  what is left.
 - **One project at a time.** **Folder > Clean subfolders** lists each project in a folder of
   projects, with its own Clean button.
 - **Warnings.** Two warnings watch the space to clean in all folders and the free space on each
@@ -79,7 +80,9 @@ a Rust project is left alone. To add your own rules, open **Tools > Cleaner type
   each level starts, and the level from which you get a notification, in Settings. The tray
   icon shows the space to clean as a circle on the left and free space as a triangle on the
   right, in the colour of the level, and its menu lists the reasons at the top. A folder can
-  also have its own limit. **Free space** shows
+  also have its own limit. To leave a folder out of the warnings, edit it and clear **Include
+  this folder in the warnings**; the list then tags it "not in warnings", and the toolbar adds
+  the space to clean in the folders that count. **Free space** shows
   the free space on each disk; uncheck a disk there to leave it out of the warning.
 - **Sorting.** Order groups and folders by name, by space to clean, or in your own order by
   dragging them.

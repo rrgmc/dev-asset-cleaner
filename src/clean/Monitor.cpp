@@ -209,6 +209,16 @@ qint64 Monitor::groupCleanableBytes(const QList<QUuid> &groupIds) const
     return total;
 }
 
+qint64 Monitor::warningCleanableBytes() const
+{
+    qint64 total = 0;
+    for (const Folder &f : m_store->folders()) {
+        if (f.inWarnings)
+            total += result(f.id).cleanableBytes;
+    }
+    return total;
+}
+
 QList<Volume> Monitor::volumes() const
 {
     return m_volumes;
@@ -223,11 +233,11 @@ Warnings Monitor::warnings() const
         w.freeLevel = std::max(w.freeLevel, v.level);
     }
     for (const Folder &f : m_store->folders()) {
-        if (f.warnBytes > 0 && result(f.id).cleanableBytes > f.warnBytes)
+        if (f.inWarnings && f.warnBytes > 0 && result(f.id).cleanableBytes > f.warnBytes)
             w.largeFolders.append(f.id);
     }
     w.cleanLevel =
-        m_store->settings().cleanAlert.levelFor(cleanableBytes(), Alert::Direction::Above);
+        m_store->settings().cleanAlert.levelFor(warningCleanableBytes(), Alert::Direction::Above);
     if (!w.largeFolders.isEmpty())
         w.cleanLevel = std::max(w.cleanLevel, Severity::Low);
     return w;

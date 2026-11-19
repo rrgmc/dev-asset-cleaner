@@ -29,6 +29,9 @@ ItemsView::ItemsView(QWidget *parent)
     : QWidget(parent)
     , m_summary(new QLabel(this))
     , m_tree(new QTreeWidget(this))
+    , m_totals(new QWidget(this))
+    , m_bytes(new QLabel(m_totals))
+    , m_count(new QLabel(m_totals))
 {
     m_summary->setWordWrap(true);
     m_tree->setRootIsDecorated(false);
@@ -38,10 +41,37 @@ ItemsView::ItemsView(QWidget *parent)
     m_tree->setSortingEnabled(true);
     m_tree->sortByColumn(0, Qt::DescendingOrder);
 
+    QFont bytesFont = font();
+    bytesFont.setPointSizeF(bytesFont.pointSizeF() * 3);
+    bytesFont.setBold(true);
+    m_bytes->setFont(bytesFont);
+    m_bytes->setAlignment(Qt::AlignCenter);
+    m_bytes->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    QFont countFont = font();
+    countFont.setPointSizeF(countFont.pointSizeF() * 1.6);
+    m_count->setFont(countFont);
+    m_count->setAlignment(Qt::AlignCenter);
+    auto *totalsLayout = new QVBoxLayout(m_totals);
+    totalsLayout->addStretch(1);
+    totalsLayout->addWidget(m_bytes);
+    totalsLayout->addWidget(m_count);
+    totalsLayout->addStretch(1);
+    m_totals->hide();
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_summary);
     layout->addWidget(m_tree, 1);
+    layout->addWidget(m_totals, 1);
+}
+
+void ItemsView::setSummaryOnly(bool summaryOnly)
+{
+    m_summaryOnly = summaryOnly;
+    m_tree->setVisible(!summaryOnly);
+    m_totals->setVisible(summaryOnly);
+    if (summaryOnly)
+        m_tree->clear();
 }
 
 void ItemsView::setResult(const QString &folderPath, const ScanResult &result)
@@ -53,6 +83,14 @@ void ItemsView::setResult(const QString &folderPath, const ScanResult &result)
                               static_cast<int>(result.items.size()))
                                .arg(Format::bytes(result.cleanableBytes),
                                     QLocale().toString(result.finishedAt, QLocale::ShortFormat)));
+
+    if (m_summaryOnly) {
+        const bool scanned = result.valid;
+        m_bytes->setText(scanned ? Format::bytes(result.cleanableBytes) : QString());
+        m_count->setText(scanned ? tr("%n item(s)", nullptr, static_cast<int>(result.items.size()))
+                                 : QString());
+        return;
+    }
 
     const QDir base(folderPath);
     QList<QTreeWidgetItem *> rows;

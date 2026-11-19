@@ -52,7 +52,7 @@ QVariant GroupModel::data(const QModelIndex &index, int role) const
     case WarningRole:
         for (const Folder &f : m_store->foldersIn({id})) {
             const ScanResult r = m_monitor->result(f.id);
-            if (!r.error.isEmpty() || (f.warnBytes > 0 && r.cleanableBytes > f.warnBytes))
+            if (!r.error.isEmpty() || (f.inWarnings && f.warnBytes > 0 && r.cleanableBytes > f.warnBytes))
                 return true;
         }
         return false;

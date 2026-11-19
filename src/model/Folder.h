@@ -29,6 +29,9 @@ struct Folder
     QUuid groupId;         // not in the folder's JSON: the file nests folders in their group
     QStringList excludes;  // names of first-level subfolders that cleaning never touches
     Kind kind = Kind::Matching;
+    // Whether the folder counts in the space to clean warning (Settings::cleanAlert) and its
+    // own warnBytes can make the tray warn. Off, it is still scanned and cleaned.
+    bool inWarnings = true;
 
     QJsonObject toJson() const;
     static Folder fromJson(const QJsonObject &obj);

@@ -24,6 +24,8 @@ CleanDetailsDialog::CleanDetailsDialog(Store *store, Monitor *monitor, const QUu
     setWindowTitle(tr("What cleaning %1 deletes").arg(f ? f->name : QString()));
     resize(720, 520);
 
+    // A Whole folder deletes everything in it, often thousands of items: show only the totals.
+    m_items->setSummaryOnly(f && f->kind == Folder::Kind::Whole);
     auto *itemsPage = new QWidget;
     auto *itemsLayout = new QVBoxLayout(itemsPage);
     itemsLayout->addWidget(m_items);
