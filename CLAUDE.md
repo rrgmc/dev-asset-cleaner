@@ -90,7 +90,10 @@ work in the main checkout's working tree, which stays on `master`.
   (`CanCleanRole`). The dialog stays open and shows the rescan. `SubfolderPanel`
   lists a folder's first-level subfolders through `SubfolderModel`, which scans and cleans each
   one on its own thread pool, and asks `Monitor` to rescan the folder after each clean.
-  `ItemsDialog` shows an `ItemsView` alone, for a subfolder or the confirmation box. `DetectDialog` runs `Scanner::detect` in the background and returns the
+  For a Whole folder the Items tab's `ItemsView` is in summary mode: the space and the
+  number of items in large type, without the list, which can hold thousands of items.
+  `ItemsDialog` shows an `ItemsView` alone, for a subfolder or the confirmation box (Show
+  items, offered only for a Matching folder). `DetectDialog` runs `Scanner::detect` in the background and returns the
   chosen types. The tray menu and tooltip are rebuilt from `Monitor::summaryChanged`.
   `GroupModel` and `FolderModel` sort their own rows (`SortOrder`: manual, name, or space to
   clean), so row numbers from `idAt` and `rowOf` stay valid; a re-sort is a layout change that

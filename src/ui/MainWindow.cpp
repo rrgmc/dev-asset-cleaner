@@ -1121,7 +1121,10 @@ void MainWindow::cleanFolder(const QUuid &id, CleanDetailsDialog *from)
         QWidget *owner = from ? static_cast<QWidget *>(from) : this;
         QMessageBox box(QMessageBox::Warning, tr("Clean %1").arg(f->name), question,
                         QMessageBox::Cancel, owner);
-        QPushButton *details = box.addButton(tr("Show items…"), QMessageBox::HelpRole);
+        // A Whole folder's question already says what goes; its items can be thousands.
+        QPushButton *details = f->kind == Folder::Kind::Matching
+                                   ? box.addButton(tr("Show items…"), QMessageBox::HelpRole)
+                                   : nullptr;
         // A Matching folder can also be cleaned one subfolder at a time.
         QPushButton *subfolders =
             f->kind == Folder::Kind::Matching
@@ -1132,7 +1135,7 @@ void MainWindow::cleanFolder(const QUuid &id, CleanDetailsDialog *from)
         // The Show items button would close the box; reopen it afterwards.
         for (;;) {
             box.exec();
-            if (box.clickedButton() != details)
+            if (!details || box.clickedButton() != details)
                 break;
             ItemsDialog(f->name, f->path, r, owner).exec();
         }

@@ -2,6 +2,7 @@
 #include "model/Store.h"
 #include "ui/CleanChoice.h"
 #include "ui/CleanDetailsDialog.h"
+#include "ui/ItemsDialog.h"
 #include "ui/CleanableListView.h"
 #include "ui/DetectDialog.h"
 #include "ui/FolderDelegate.h"
@@ -309,6 +310,12 @@ private slots:
         QVERIFY(!whole.hasSubfolders());
         QCOMPARE(whole.tabs()->count(), 1);
         QVERIFY(!whole.subfolderPanel());
+        // Its Items tab shows only the totals, not the list.
+        auto *wholeItems = whole.findChild<ItemsView *>();
+        QVERIFY(wholeItems);
+        QVERIFY(wholeItems->isSummaryOnly());
+        QCOMPARE(whole.findChild<QTreeWidget *>()->topLevelItemCount(), 0);
+        QVERIFY(!dialog.findChild<ItemsView *>()->isSummaryOnly());
     }
 
     void cleanAllCleansEveryFolder()
