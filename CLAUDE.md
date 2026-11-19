@@ -102,8 +102,9 @@ work in the main checkout's working tree, which stays on `master`.
   toolbar's two sort buttons open the same submenus; their icons are drawn in code on every
   platform (`Icons::sortGroupsIcon`, `sortFoldersIcon`).
   `UsagePanel`, in the toolbar right of the buttons, paints the space to clean in every
-  folder, plus in the folders in the warnings when that differs, and in the selected groups
-  when they are not all of them. `FreeSpaceDialog` (the Free space
+  folder in coral, plus in the folders in the warnings when that differs (in the clean level's
+  `Icons::severityTextColor`, or the text colour without a warning), and in the selected groups
+  when they are not all of them (in the text colour). `FreeSpaceDialog` (the Free space
   button) lists every disk that holds a monitored folder, with a check box that takes the disk
   out of the free space warning (`Settings::freeAlertOffDisks`); the status bar shows only the
   disks at a warning level, in the most serious level's colour. The UI shows only the

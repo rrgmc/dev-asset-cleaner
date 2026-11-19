@@ -9,6 +9,7 @@
 #include "ui/FolderDialog.h"
 #include "ui/FolderListView.h"
 #include "ui/FolderModel.h"
+#include "ui/Icons.h"
 #include "ui/UsagePanel.h"
 #include "ui/Format.h"
 #include "ui/FreeSpaceDialog.h"
@@ -804,6 +805,14 @@ private slots:
 
         // The toolbar shows the third value, and the folder list tags the row.
         QTRY_VERIFY(usage->captions().contains(QStringLiteral("In warnings")));
+        // Without a warning it has the text colour; with one, the level's colour.
+        const QColor text = usage->palette().color(QPalette::WindowText);
+        QCOMPARE(usage->sizeColor(QStringLiteral("In warnings")), text);
+        QVERIFY(usage->sizeColor(QStringLiteral("All folders")) != text);
+        s.cleanAlert = Alert{{500, 0, 0}, Severity::Low};
+        m_store->setSettings(s);
+        QTRY_COMPARE(usage->sizeColor(QStringLiteral("In warnings")),
+                     Icons::severityTextColor(Severity::Low));
         auto *folders = qobject_cast<FolderModel *>(m_list->model());
         QVERIFY(folders);
         const QModelIndex row = folders->index(folders->rowOf(f.id), 0);

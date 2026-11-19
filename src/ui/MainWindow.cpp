@@ -579,7 +579,7 @@ void MainWindow::updateSummary()
         // The selection is worth its own column only when it is not every group.
         const bool partial = !groups.isEmpty() && groups.size() < m_store->groups().size();
         m_usage->setUsage(m_monitor->cleanableBytes(), groupCleanable, partial,
-                          warningCleanable);
+                          warningCleanable, m_monitor->warnings().cleanLevel);
     }
     m_cleanAllAction->setEnabled(groupCleanable > 0);
     m_cleanEverythingAction->setEnabled(m_monitor->cleanableBytes() > 0);

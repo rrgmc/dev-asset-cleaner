@@ -1,6 +1,7 @@
 #include "UsagePanel.h"
 
 #include "Format.h"
+#include "Icons.h"
 
 #include <QEvent>
 #include <QPainter>
@@ -41,8 +42,9 @@ UsagePanel::UsagePanel(QWidget *parent)
 }
 
 void UsagePanel::setUsage(qint64 allBytes, qint64 selectionBytes, bool showSelection,
-                          qint64 warningBytes)
+                          qint64 warningBytes, Severity warningLevel)
 {
+    m_warningLevel = warningLevel;
     m_all = allBytes;
     m_selection = selectionBytes;
     m_showSelection = showSelection;
@@ -76,12 +78,32 @@ QFont UsagePanel::smallFont() const
 
 QList<UsagePanel::Column> UsagePanel::columns() const
 {
-    QList<Column> list{{tr("All folders"), m_all}};
-    if (m_warning != m_all)
-        list.append({tr("In warnings"), m_warning});
+    QList<Column> list{{tr("All folders"), m_all, CleanableColor}};
+    if (m_warning != m_all) {
+        list.append({tr("In warnings"), m_warning,
+                     m_warningLevel == Severity::None ? QColor()
+                                                      : Icons::severityTextColor(m_warningLevel)});
+    }
     if (m_showSelection)
-        list.append({tr("Selected"), m_selection});
+        list.append({tr("Selected"), m_selection, QColor()});
     return list;
+}
+
+QColor UsagePanel::sizeColor(const Column &column) const
+{
+    const QColor text = palette().color(QPalette::WindowText);
+    if (column.cleanableBytes <= 0)
+        return blend(text, palette().color(QPalette::Window), 0.45);
+    return column.color.isValid() ? column.color : text;
+}
+
+QColor UsagePanel::sizeColor(const QString &caption) const
+{
+    for (const Column &c : columns()) {
+        if (c.caption == caption)
+            return sizeColor(c);
+    }
+    return {};
 }
 
 QStringList UsagePanel::captions() const
@@ -148,7 +170,7 @@ void UsagePanel::paintEvent(QPaintEvent *)
         const int baseline = y + bigMetrics.ascent();
         const QString size = Format::bytes(c.cleanableBytes);
         painter.setFont(big);
-        painter.setPen(c.cleanableBytes > 0 ? CleanableColor : dim);
+        painter.setPen(sizeColor(c));
         painter.drawText(QPoint(x, baseline), size);
         painter.setFont(small);
         painter.setPen(dim);
