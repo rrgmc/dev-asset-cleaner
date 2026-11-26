@@ -685,7 +685,8 @@ void MainWindow::updateTray()
     m_trayMenu->addSeparator();
     m_trayMenu->addAction(tr("Quit"), qApp, &QApplication::quit);
 
-    m_tray->setIcon(Icons::trayIcon(warnings.cleanLevel, warnings.freeLevel));
+    m_tray->setIcon(Icons::trayIcon(),
+                    Icons::trayBadges(warnings.cleanLevel, warnings.freeLevel));
     m_tray->setToolTip(tipLines.join(QLatin1Char('\n')));
 
     // Each warning notifies when its level rises to the settings' notify level or above, while

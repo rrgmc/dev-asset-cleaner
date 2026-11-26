@@ -121,9 +121,29 @@ TrayIcon::~TrayIcon()
     [NSStatusBar.systemStatusBar removeStatusItem:d->item];
 }
 
-void TrayIcon::setIcon(const QIcon &icon)
+void TrayIcon::setIcon(const QIcon &icon, const QIcon &badges)
 {
-    d->item.button.image = toNSImage(icon);
+    NSImage *base = toNSImage(icon);
+    if (badges.isNull() || ![base isTemplate]) {
+        d->item.button.image = base;
+        return;
+    }
+    // A template image cannot hold colours. Draw the template in the menu bar's text colour,
+    // read while drawing so that it follows the menu bar's appearance, and the badges over it.
+    NSImage *overlay = toNSImage(badges);
+    d->item.button.image = [NSImage imageWithSize:base.size
+                                          flipped:NO
+                                   drawingHandler:^BOOL(NSRect rect) {
+        CGContextRef context = NSGraphicsContext.currentContext.CGContext;
+        // Tint the template alone, not what lies under the image.
+        CGContextBeginTransparencyLayer(context, nullptr);
+        [base drawInRect:rect];
+        [NSColor.labelColor set];
+        NSRectFillUsingOperation(rect, NSCompositingOperationSourceAtop);
+        CGContextEndTransparencyLayer(context);
+        [overlay drawInRect:rect];
+        return YES;
+    }];
 }
 
 void TrayIcon::setToolTip(const QString &toolTip)

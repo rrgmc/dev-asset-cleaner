@@ -21,11 +21,13 @@ QPixmap badge(Severity severity, bool freeSpace, int size);
 // from looking like the system's trash. The executable's .ico and .icns files are generated
 // from the same drawing by tools/make_icons.
 QIcon appIcon();
-// The icon in the tray or menu bar. Without a warning it is the same shape as a monochrome
-// template on macOS. A warning adds a badge in its level's colour, in colour on every platform:
-// a circle at the bottom left for the space to clean, and a triangle pointing down at the
-// bottom right for free space.
-QIcon trayIcon(Severity clean = Severity::None, Severity free = Severity::None);
+// The icon in the tray or menu bar, without warnings: a monochrome template on macOS, the app
+// icon elsewhere.
+QIcon trayIcon();
+// The warning badges that TrayIcon draws over trayIcon(), each in its level's colour: a circle at
+// the bottom left for the space to clean, and a triangle pointing down at the bottom right for
+// free space. Null without a warning.
+QIcon trayBadges(Severity clean, Severity free);
 // The icon at one size; tools/make_icons uses it to write the .ico and .icns files.
 QImage render(int size, bool mono = false, Severity clean = Severity::None,
               Severity free = Severity::None);
