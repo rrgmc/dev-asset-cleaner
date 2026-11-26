@@ -180,6 +180,14 @@ work in the main checkout's working tree, which stays on `master`.
   Screenshot controls, and Qt (6.8 to 6.10) leaves them there. `MacApp::attachModalDialogs`
   keeps each modal dialog at the normal level and attaches it to its owner window as a child
   window, as Mirante does, so it stays directly above that window.
+- On Windows, a window hidden to the tray keeps its virtual desktop, so showing it from another
+  desktop left it and its dialogs out of sight. `showAndFocus` moves the window to the current
+  desktop (`WinDesktop::moveToCurrentDesktop` reads it from another app's window, or a probe
+  window on an empty desktop), and `WinDesktop::keepDialogsWithOwner` moves each dialog that
+  opens on another desktop to its owner's (`IVirtualDesktopManager`). A tray click shows a
+  window that is on another desktop instead of hiding it. On macOS,
+  `MacApp::moveToActiveSpace` gives the window the move-to-active-Space behaviour instead. As
+  in favdir.
 - Qt's macOS style (6.8 to 6.10) draws no usable check boxes in item views on macOS 27: at
   most a misplaced box on the first row. `ItemCheckStyle` replaces its
   `PE_IndicatorItemViewItemCheck` drawing, as in favdir; drawing after the style showed both. `ItemCheckStyle::apply`

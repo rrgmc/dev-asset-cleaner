@@ -8,6 +8,9 @@
 #include "ui/MacApp.h"
 #endif
 #include "ui/MainWindow.h"
+#ifdef Q_OS_WIN
+#include "ui/WinDesktop.h"
+#endif
 
 #include <QApplication>
 #include <QDateTime>
@@ -74,6 +77,9 @@ int main(int argc, char *argv[])
             window.showAndFocus();
     });
     MacApp::attachModalDialogs();
+#endif
+#ifdef Q_OS_WIN
+    WinDesktop::keepDialogsWithOwner();
 #endif
 
     // Starting at sign-in keeps the app in the tray until it is called. Windows passes
