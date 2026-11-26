@@ -1,6 +1,6 @@
 name: release
 
-# Pushing a tag vX.Y.Z (or X.Y.Z) publishes a GitHub release for it, builds and tests dev-asset-cleaner,
+# Pushing a tag vX.Y.Z (or X.Y.Z, or vX.Y.Z-rc.N for a prerelease) publishes a GitHub release for it, builds and tests dev-asset-cleaner,
 # then attaches the Windows setup and the notarised macOS disk image to the release. To redo it
 # for an existing tag, run the workflow by hand with the tag: the code comes from the tag, this
 # file from the branch it runs on.
@@ -34,6 +34,8 @@ permissions:
 jobs:
   # Checks the tag and publishes its release, unless one exists already. A release published
   # with the workflow's token does not start other workflows, so this does not run twice.
+  # A tag vX.Y.Z-rc.N publishes a prerelease. The build takes only X.Y.Z, because CMake's
+  # project(VERSION) accepts numbers alone; the release title keeps the full version.
   release:
     runs-on: ubuntu-latest
     outputs:
@@ -44,24 +46,52 @@ jobs:
         id: version
         run: |
           tag="$TAG"
-          version="${tag#v}"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Release tag '$tag' is not vX.Y.Z or X.Y.Z"
+          full="${tag#v}"
+          if [[ ! "$full" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-rc\.[0-9]+)?$ ]]; then
+            echo "::error::Release tag '$tag' is not vX.Y.Z, vX.Y.Z-rc.N or X.Y.Z"
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=${BASH_REMATCH[1]}"
+            echo "full=$full"
+            echo "prerelease=$([ -n "${BASH_REMATCH[2]}" ] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
 
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+
+      # The notes are the version's "## [X.Y.Z]" section of CHANGELOG.md, else GitHub's
+      # generated notes.
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          FULL: ${{ steps.version.outputs.full }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
           if gh release view "$TAG" > /dev/null 2>&1; then
             echo "Release $TAG exists already"
-          else
-            gh release create "$TAG" --verify-tag --generate-notes \
-              --title "Dev Asset Cleaner ${{ steps.version.outputs.version }}"
+            exit 0
           fi
+          notes="$RUNNER_TEMP/notes.md"
+          : > "$notes"
+          if [ -f CHANGELOG.md ]; then
+            awk -v v="$FULL" '
+              /^## / { if (found) exit; if (index($0, "[" v "]")) { found = 1; next } }
+              found { print }
+            ' CHANGELOG.md | sed -e '/./,$!d' > "$notes"
+          fi
+          args=(--verify-tag --title "Dev Asset Cleaner $FULL")
+          if [ -s "$notes" ]; then
+            args+=(--notes-file "$notes")
+          else
+            args+=(--generate-notes)
+          fi
+          if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
+          gh release create "$TAG" "${args[@]}"
 
   windows-setup:
     needs: release

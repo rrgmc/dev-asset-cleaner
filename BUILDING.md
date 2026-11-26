@@ -130,7 +130,8 @@ The header of the script lists the environment variables that override these def
 ## Releases
 
 Pushing a tag `vX.Y.Z` runs the release workflow. It publishes a GitHub release for the tag,
-builds and tests the app with that version, then attaches the Windows setup and the notarised
+with the version's section of `CHANGELOG.md` as its notes. A tag `vX.Y.Z-rc.N` publishes a
+prerelease, built with the version `X.Y.Z`. The workflow then builds and tests the app with that version, then attaches the Windows setup and the notarised
 macOS disk image to the release. The tag is the version: nothing in the tree is bumped. A
 local build without `-DDAC_VERSION` takes its version from the newest `vX.Y.Z` tag reachable
 from the checked-out commit, or 0.0.0 when there is none. Help > About shows the version.
