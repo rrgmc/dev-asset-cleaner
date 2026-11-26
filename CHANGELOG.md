@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-26
+
+### Changed
+
+- On macOS, the menu bar icon stays black and white when there is a warning: only the warning
+  badges are in colour.
+
 ## [1.4.0] - 2026-11-26
 
 ### Changed
@@ -21,5 +28,6 @@ All notable changes to this project are documented in this file. The format foll
   dialogs to the current one, instead of leaving them out of sight. On Windows, a tray click
   shows a window that is on another desktop instead of hiding it.
 
-[Unreleased]: https://github.com/rrgmc/dev-asset-cleaner/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/rrgmc/dev-asset-cleaner/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/rrgmc/dev-asset-cleaner/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/rrgmc/dev-asset-cleaner/compare/v1.3.0...v1.4.0
