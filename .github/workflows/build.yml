@@ -6,14 +6,24 @@ run-name: >-
       || '' }}
 
 on:
+  # Work branches build through their pull request, so a push to one does not build twice.
   # Tags start release.yml, which builds and tests on its own.
   push:
-    branches: ['**']
+    branches: [master]
+  # labeled/unlabeled: adding the no-changelog label re-runs the changelog check.
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+# A new push to a pull request cancels its older run; runs on master all finish.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Finds whether anything other than documentation changed. Documentation is every *.md file
-  # and the docs/ folder; LICENSE is not, because the install step ships it.
+  # Finds whether anything that the build reads changed. It does not read *.md files, docs/,
+  # Taskfile.yml, scripts/release-macos.sh (only release.yml runs it), .gitignore,
+  # .editorconfig and .github/personal-rules.yml. LICENSE counts, because the install step
+  # ships it.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -46,7 +56,8 @@ jobs:
             exit 0
           fi
           printf '%s\n' "$files"
-          if printf '%s\n' "$files" | grep -qvE '(\.md$|^docs/|^$)'; then
+          ignored='(\.md$|^docs/|^Taskfile\.yml$|^scripts/release-macos\.sh$|^\.gitignore$|^\.editorconfig$|^\.github/personal-rules\.yml$|^$)'
+          if printf '%s\n' "$files" | grep -qvE "$ignored"; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
@@ -112,18 +123,29 @@ jobs:
           name: dev-asset-cleaner-${{ matrix.preset }}
           path: dist
 
-  # The one check that branch protection requires. It passes when the build passed or was
-  # skipped for a documentation-only change. A skipped matrix job reports one check without
-  # the matrix in its name, so the build jobs themselves cannot be required.
+  # Checks the fragments in changelog.d/ (see changelog.d/README.md). A pull request that
+  # changes code needs one, or the no-changelog label.
+  changelog:
+    needs: changes
+    if: github.event_name == 'pull_request'
+    uses: RangelReale/personal-ai-rules/.github/workflows/changelog-check.yml@v0.5.1
+    with:
+      kind: ${{ needs.changes.outputs.code == 'true' && 'code' || 'docs' }}
+
+  # The one check that branch protection requires. It passes when every other job passed or
+  # was skipped (the build for a documentation-only change, the changelog check on master).
+  # A skipped matrix job reports one check without the matrix in its name, so the build jobs
+  # themselves cannot be required. List every other job in needs.
   ci:
-    needs: [changes, build]
+    needs: [changes, build, changelog]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - shell: bash
         env:
-          CHANGES: ${{ needs.changes.result }}
-          BUILD: ${{ needs.build.result }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          echo "changes: $CHANGES, build: $BUILD"
-          [ "$CHANGES" = success ] && { [ "$BUILD" = success ] || [ "$BUILD" = skipped ]; }
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in success | skipped) ;; *) exit 1 ;; esac
+          done

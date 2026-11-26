@@ -213,12 +213,15 @@ work in the main checkout's working tree, which stays on `master`.
   CI sets). It reads notarytool's JSON status, prints Apple's log on failure and retries
   stapling. The release job builds a temporary keychain from the `release` environment's secrets and exports
   those variables. That job holds secrets: keep its actions pinned to commits.
-- `.github/workflows/build.yml` builds and tests on every push and pull request, except when
-  only documentation changed (`*.md` files and `docs/`). Its `ci` job passes when the build
-  passed or was skipped, and it is the only check that branch protection requires. Pull
-  request runs are titled with the PR number. `release.yml` runs when a
-  tag `vX.Y.Z` is pushed: it publishes the GitHub release (unless it exists), builds with that
-  version (`-DDAC_VERSION`) and attaches the Windows setup and the macOS disk image. The tag
+- `.github/workflows/build.yml` builds and tests on pushes to `master` and on pull requests,
+  except when only files the build does not read changed (`*.md`, `docs/`, `Taskfile.yml`,
+  `scripts/release-macos.sh` and a few dotfiles; the `changes` job lists them). Its
+  `changelog` job checks the `changelog.d/` fragments on pull requests. Its `ci` job passes
+  when every other job passed or was skipped, and it is the only check that branch protection
+  requires. Pull request runs are titled with the PR number. `release.yml` runs when a
+  tag `vX.Y.Z` (or `vX.Y.Z-rc.N`, a prerelease built as `X.Y.Z`) is pushed: it publishes the
+  GitHub release (unless it exists) with the version's `CHANGELOG.md` section as notes, builds
+  with that version (`-DDAC_VERSION`) and attaches the Windows setup and the macOS disk image. The tag
   is the version; nothing in the tree is bumped for a release. Without `-DDAC_VERSION`,
   `CMakeLists.txt` takes the newest `vX.Y.Z` tag reachable from HEAD (0.0.0 without git or
   tags) and configures again when tags change. Help > About shows it.

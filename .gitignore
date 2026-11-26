@@ -7,3 +7,7 @@
 .vscode/
 *.user
 /.claude/worktrees/
+# personal-rules: worktrees and machine-local notes never get committed.
+.claude/settings.local.json
+CLAUDE.local.md
+local/
