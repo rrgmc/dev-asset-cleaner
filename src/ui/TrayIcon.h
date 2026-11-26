@@ -22,7 +22,10 @@ public:
     TrayIcon(const QIcon &icon, const QString &toolTip, QMenu *menu, QObject *parent = nullptr);
     ~TrayIcon() override;
 
-    void setIcon(const QIcon &icon);
+    // Sets the icon, with `badges` (which may be null) drawn over it in colour. On macOS `icon`
+    // stays a template image: it takes the menu bar's text colour, and only the badges keep
+    // their colours.
+    void setIcon(const QIcon &icon, const QIcon &badges);
     // Shown when the pointer rests on the icon. Several lines are allowed.
     void setToolTip(const QString &toolTip);
 

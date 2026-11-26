@@ -1,6 +1,8 @@
 #include "TrayIcon.h"
 
 #include <QMenu>
+#include <QPainter>
+#include <QPixmap>
 #include <QSystemTrayIcon>
 
 class TrayIcon::Private
@@ -31,9 +33,21 @@ TrayIcon::TrayIcon(const QIcon &icon, const QString &toolTip, QMenu *menu, QObje
 
 TrayIcon::~TrayIcon() = default;
 
-void TrayIcon::setIcon(const QIcon &icon)
+void TrayIcon::setIcon(const QIcon &icon, const QIcon &badges)
 {
-    d->tray->setIcon(icon);
+    if (badges.isNull()) {
+        d->tray->setIcon(icon);
+        return;
+    }
+    QIcon combined;
+    for (const QSize &size : icon.availableSizes()) {
+        QPixmap pixmap = icon.pixmap(size, 1.0);
+        QPainter painter(&pixmap);
+        painter.drawPixmap(pixmap.rect(), badges.pixmap(size, 1.0));
+        painter.end();
+        combined.addPixmap(pixmap);
+    }
+    d->tray->setIcon(combined);
 }
 
 void TrayIcon::setToolTip(const QString &toolTip)

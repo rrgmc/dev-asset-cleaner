@@ -241,17 +241,34 @@ QIcon appIcon()
     return icon;
 }
 
-QIcon trayIcon(Severity clean, Severity free)
+QIcon trayBadges(Severity clean, Severity free)
 {
-    if (clean != Severity::None || free != Severity::None) {
-        // In colour: a template image would lose the badges' colours.
-        static QHash<int, QIcon> icons;
-        const int key = static_cast<int>(clean) * 4 + static_cast<int>(free);
-        auto it = icons.find(key);
-        if (it == icons.end())
-            it = icons.insert(key, build(false, clean, free));
-        return *it;
+    if (clean == Severity::None && free == Severity::None)
+        return {};
+    static QHash<int, QIcon> icons;
+    const int key = static_cast<int>(clean) * 4 + static_cast<int>(free);
+    auto it = icons.find(key);
+    if (it == icons.end()) {
+        QIcon icon;
+        for (int size : {16, 22, 32, 44, 64, 128, 256}) {
+            QImage image(size, size, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            painter.setRenderHint(QPainter::Antialiasing);
+            if (clean != Severity::None)
+                paintCleanBadge(painter, size, clean);
+            if (free != Severity::None)
+                paintFreeBadge(painter, size, free);
+            painter.end();
+            icon.addPixmap(QPixmap::fromImage(image));
+        }
+        it = icons.insert(key, icon);
     }
+    return *it;
+}
+
+QIcon trayIcon()
+{
 #ifdef Q_OS_MACOS
     static const QIcon icon = [] {
         QIcon i = build(true);

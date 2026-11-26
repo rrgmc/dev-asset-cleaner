@@ -158,7 +158,9 @@ work in the main checkout's working tree, which stays on `master`.
 - On macOS, Qt's `Ctrl` is the Command key and `Meta` is Control.
 - The app icon is drawn in `src/ui/Icons.cpp`. `resources/dev-asset-cleaner.ico` and `.icns`
   are generated from it by the `make_icons` target and committed; regenerate them after
-  changing the drawing. The tray's warning icon adds up to two badges to the same drawing.
+  changing the drawing. The tray's warning icon adds up to two badges to the same drawing
+  (`Icons::trayBadges`, drawn by `TrayIcon::setIcon`). On macOS the drawing stays a monochrome
+  template, tinted with the menu bar's text colour, and only the badges are in colour.
 - `docs/screenshot-macos.png` and `docs/screenshot.png` (Windows) are drawn with made-up data
   by the `make_screenshot` target, through `Monitor::setResultForDisplay` and
   `setVolumesForDisplay`. Each is made on its own platform. The tool captures the real window
