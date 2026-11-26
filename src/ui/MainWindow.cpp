@@ -53,7 +53,12 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#ifdef Q_OS_MACOS
+#include "MacApp.h"
+#endif
 #ifdef Q_OS_WIN
+#include "WinDesktop.h"
+
 #include <windows.h>
 // windows.h maps this to DocumentPropertiesW, which clashes with QIcon::ThemeIcon.
 #undef DocumentProperties
@@ -838,6 +843,15 @@ void MainWindow::showAndFocus()
         showNormal();
     else
         show();
+#ifdef Q_OS_WIN
+    // The window stays on the desktop it was hidden from, or left on; bring it, and so the
+    // dialogs it owns, to the one the user is looking at.
+    WinDesktop::moveToCurrentDesktop(this);
+#elif defined(Q_OS_MACOS)
+    // The same for Spaces, from the next activation on: AppKit moves a window that is already
+    // on screen, and a hidden one shows on the active Space anyway.
+    MacApp::moveToActiveSpace(this);
+#endif
     raise();
     activateWindow();
     m_list->focusFirst();
@@ -853,7 +867,9 @@ void MainWindow::toggleVisible()
     const bool lostToTaskbar = isTaskbar(foreground)
         && (m_lostToTaskbar
             || (m_deactivated.isValid() && m_deactivated.elapsed() < TrayClickMs));
-    const bool inFront = foreground == reinterpret_cast<HWND>(winId()) || lostToTaskbar;
+    // A window on another virtual desktop is never in front: the click brings it here.
+    const bool inFront = (foreground == reinterpret_cast<HWND>(winId()) || lostToTaskbar)
+        && WinDesktop::isOnCurrentDesktop(this);
 #else
     const bool inFront = isActiveWindow();
 #endif
